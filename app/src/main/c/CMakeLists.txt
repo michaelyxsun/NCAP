@@ -48,7 +48,7 @@ set(CMAKE_SHARED_LINKER_FLAGS
 add_library(
   ${CMAKE_PROJECT_NAME} SHARED
   # List C/C++ source files with relative paths to this CMakeLists.txt.
-  native-lib.c audio.c)
+  native-lib.c render.c audio.c)
 
 # target_include_directories( ${CMAKE_PROJECT_NAME} PRIVATE
 # "/opt/homebrew/Cellar/openjdk/23.0.2/include")
