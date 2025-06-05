@@ -63,8 +63,8 @@ audio_play (void)
 
     AAudioStreamBuilder_setChannelCount (builder, channels);
     AAudioStreamBuilder_setFormat (builder, AAUDIO_FORMAT_PCM_FLOAT);
-    // AAudioStreamBuilder_setPerformanceMode (
-    //     builder, AAUDIO_PERFORMANCE_MODE_POWER_SAVING);
+    AAudioStreamBuilder_setPerformanceMode (
+        builder, AAUDIO_PERFORMANCE_MODE_POWER_SAVING);
 
     AAudioStream *stream;
     res = AAudioStreamBuilder_openStream (builder, &stream);
@@ -89,7 +89,10 @@ audio_play (void)
 
     logi ("%s: Stream started. Playing audio...", FILENAME);
 
-    while (res >= AAUDIO_OK) {
+    const uint64_t MAX_ITER = 100;
+    uint64_t       i        = 0;
+
+    while (i++ < MAX_ITER && res >= AAUDIO_OK) {
         float *data = buf;
 
         for (int32_t f = 0; f < frames_per_burst; ++f) {
