@@ -1,4 +1,5 @@
 emulator -avd "$(emulator -list-avds | head -n 1)"
+adb -s emulator-5554 logcat | grep 'com.msun.rlcap'
 
 ./gradlew build
 adb install app/build/outputs/apk/debug/app-debug.apk

@@ -3,7 +3,7 @@
 # more examples on how to use CMake, see https://github.com/android/ndk-samples.
 
 # Sets the minimum CMake version required for this project.
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.25.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -48,7 +48,7 @@ set(CMAKE_SHARED_LINKER_FLAGS
 add_library(
   ${CMAKE_PROJECT_NAME} SHARED
   # List C/C++ source files with relative paths to this CMakeLists.txt.
-  native-lib.c)
+  native-lib.c audio.c)
 
 # target_include_directories( ${CMAKE_PROJECT_NAME} PRIVATE
 # "/opt/homebrew/Cellar/openjdk/23.0.2/include")
@@ -59,4 +59,4 @@ add_library(
 target_link_libraries(
   ${CMAKE_PROJECT_NAME}
   # List libraries link to the target library
-  android raylib log)
+  android raylib aaudio log)
