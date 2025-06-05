@@ -78,14 +78,14 @@ audio_play (void)
     const int32_t frames_per_burst = AAudioStream_getFramesPerBurst (stream);
     const int32_t sample_rate      = AAudioStream_getSampleRate (stream);
 
-    float *buf = malloc (frames_per_burst * channels * sizeof (float));
-
     logd ("%s: Using frames per burst %u", FILENAME, frames_per_burst);
 
     AAudioStream_requestStart (stream);
     aaudio_stream_state_t state = AAUDIO_STREAM_STATE_UNINITIALIZED;
     res                         = AAudioStream_waitForStateChange (
         stream, AAUDIO_STREAM_STATE_STARTING, &state, nstimeout);
+
+    float *buf = malloc (frames_per_burst * channels * sizeof (float));
 
     logi ("%s: Stream started. Playing audio...", FILENAME);
 
@@ -104,9 +104,9 @@ audio_play (void)
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
     }
 
-    logi ("%s: Audio play ended. Stopping stream...", FILENAME);
-
     free (buf);
+
+    logi ("%s: Audio play ended. Stopping stream...", FILENAME);
 
     AAudioStream_requestStop (stream);
     state = AAUDIO_STREAM_STATE_UNINITIALIZED;
@@ -115,6 +115,8 @@ audio_play (void)
 
     if (res != AAUDIO_OK)
         loge ("%s: AAudio failed to stop. Closing anyway...", FILENAME);
+    else
+        logi ("%s: AAudio stream stopped.", FILENAME);
 
     res = AAudioStream_close (stream);
 
@@ -122,6 +124,8 @@ audio_play (void)
         loge ("%s: AAudio failed to close", FILENAME);
         return 1;
     }
+
+    loge ("%s: AAudio stream closed.", FILENAME);
 
     return 0;
 }

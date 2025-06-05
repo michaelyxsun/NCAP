@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <raylib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -9,9 +10,22 @@
 
 static const char *FILENAME = "native-lib.c";
 
+static void *
+tfn_audio_play (void *errstat)
+{
+    *(int *)errstat = audio_play ();
+    pthread_exit (NULL);
+}
+
 int
 main (void)
 {
+    pthread_t audio_tid;
+    int       stat;
+    logi ("%s: Spawning audio_play thread...", FILENAME);
+    pthread_create (&audio_tid, NULL, tfn_audio_play, &stat);
+
+    logi ("%s: Initializing window...", FILENAME);
 
     InitWindow (0, 0, "RLCAP");
     SetTargetFPS (60);
@@ -24,8 +38,7 @@ main (void)
     char str[32];
     snprintf (str, sizeof str, "hello from raylib in %d x %d", SCW, SCH);
 
-    logi ("%s: Initialized window with dimensions %d x %d", FILENAME, SCW,
-          SCH);
+    logd ("%s: Window dimensions: %d x %d", FILENAME, SCW, SCH);
 
     const int POSX = (SCW >> 1) - (MeasureText (str, FONTSIZ) >> 1);
     const int POSY = (SCH >> 1) - (FONTSIZ >> 1);
@@ -60,12 +73,15 @@ main (void)
             DrawText (str, POSX, POSY, FONTSIZ, BLACK);
         }
         EndDrawing ();
-
-        logi ("%s: Calling audio_play...", FILENAME);
-        audio_play ();
     }
 
+    logi ("%s: Closing window...", FILENAME);
     CloseWindow ();
+
+    logi ("%s: Joining thread...", FILENAME);
+    pthread_join (audio_tid, NULL);
+
+    logi ("%s: audio_play returned a status code of %d", FILENAME, stat);
 
     return 0;
 }
