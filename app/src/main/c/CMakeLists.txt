@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # PROJECT_NAME}, Since this is the top level CMakeLists.txt, the project name is
 # also accessible with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync
 # within the top level build script scope).
-project("rlcap")
+project("main")
 
 set(BUILD_EXAMPLES
     OFF

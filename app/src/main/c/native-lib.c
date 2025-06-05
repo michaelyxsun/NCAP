@@ -1,26 +1,32 @@
-#include <jni.h>
 #include <raylib.h>
-
-jstring
-Java_com_msun_rlcap_MainActivity_stringFromJNI (JNIEnv *env, jobject this)
-{
-    return (*env)->NewStringUTF (env, "hello from c");
-}
+#include <stdbool.h>
 
 int
 main (void)
 {
+
+    InitWindow (0, 0, "RLCAP");
+    SetTargetFPS (30);
+
     const int SCW = GetScreenWidth ();
     const int SCH = GetScreenHeight ();
 
-    InitWindow (SCW, SCH, "RLCAP");
-    SetTargetFPS (30);
+    const int FONTSIZ = 20;
+
+    const char *str
+        = TextFormat ("hello from raylib\ndimens: %d x %d", SCW, SCH);
+
+    const int POSX = (SCW >> 1) - MeasureText (str, FONTSIZ);
+    const int POSY = (SCH >> 1) - FONTSIZ;
 
     while (!WindowShouldClose ()) {
+        if (IsKeyPressed (KEY_Q))
+            break;
+
         BeginDrawing ();
         {
             ClearBackground (WHITE);
-            DrawText ("hello from raylib", SCW >> 1, SCW >> 1, 20, BLACK);
+            DrawText (str, POSX, POSY, 20, BLACK);
         }
         EndDrawing ();
     }
