@@ -1,0 +1,4 @@
+emulator -avd "$(emulator -list-avds | head -n 1)"
+
+./gradlew build
+adb install app/build/outputs/apk/debug/app-debug.apk

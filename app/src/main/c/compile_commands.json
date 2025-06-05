@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/msun/programming/git-workspace/projects/rlcap/app/src/main/c",
+  "command": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cc -Drlcap_EXPORTS -I/opt/homebrew/Cellar/openjdk/23.0.2/include  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -fPIC -o CMakeFiles/rlcap.dir/native-lib.c.o -c /Users/msun/programming/git-workspace/projects/rlcap/app/src/main/c/native-lib.c",
+  "file": "/Users/msun/programming/git-workspace/projects/rlcap/app/src/main/c/native-lib.c",
+  "output": "CMakeFiles/rlcap.dir/native-lib.c.o"
+}
+]
