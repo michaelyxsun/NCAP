@@ -3,6 +3,37 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#include <stdint.h>
+#include <stdio.h>
+
+#define WAV_HEADER_SIZ 44
+
+struct wav_header_t {
+    struct {
+        char     RIFF[4];
+        uint32_t file_siz;
+        char     WAVE[4];
+    } riff;
+
+    struct {
+        char     FMT_[4];
+        uint32_t bloc_siz;
+        uint16_t audio_format;
+        uint16_t channels;
+        uint32_t frequency;
+        uint32_t bytes_per_sec;
+        uint16_t bytes_per_bloc;
+        uint16_t bits_per_sample;
+    } format;
+
+    struct {
+        char     DATA[4];
+        uint32_t data_siz;
+    } data;
+};
+
+extern void parse_header_wav (struct wav_header_t *header, FILE *fp);
+
 extern int audio_play (const char *fn);
 
 #endif // !AUDIO_H

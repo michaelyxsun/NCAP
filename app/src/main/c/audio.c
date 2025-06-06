@@ -1,9 +1,10 @@
+#include <assert.h>
 #include <errno.h>
-#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <aaudio/AAudio.h>
 #include <string.h>
@@ -11,26 +12,18 @@
 #include "audio.h"
 #include "util.h"
 
-#define TWO_PI (M_PI * 2)
-
-#define HEADER_MAX_SIZ 64
+typedef int16_t pcm_data_t;
 
 static const char *FILENAME = "audio.c";
 
-static float
-gentone (int32_t sample_rate)
+void
+parse_header_wav (struct wav_header_t *header, FILE *const fp)
 {
-    static float phase = 0;
+    static_assert (sizeof (struct wav_header_t) == WAV_HEADER_SIZ,
+                   "Macro constant WAV_HEADER_SIZ does not match computed "
+                   "size of `struct wav_header_t' using `sizeof'");
 
-    const float amp  = 0.5;
-    const float freq = 440;
-
-    phase += freq * TWO_PI / sample_rate;
-
-    if (phase > TWO_PI)
-        phase -= TWO_PI;
-
-    return amp * sinf (phase);
+    fread (header, WAV_HEADER_SIZ, 1, fp);
 }
 
 int
@@ -46,28 +39,39 @@ audio_play (const char *fn)
 
     logi ("%s: Opened file `%s'", FILENAME, fn);
 
-    // TODO(M-Y-Sun): adjust for different file types
-    uint8_t      header[HEADER_MAX_SIZ];
-    const size_t headersiz = 44;
-    fread (header, sizeof (uint8_t), headersiz, fp);
+    struct wav_header_t header;
+    parse_header_wav (&header, fp);
 
-    fseek (fp, 0, SEEK_END);
-    const size_t datasiz = ftell (fp) - headersiz;
-
-    fseek (fp, headersiz, SEEK_SET);
+#ifndef NDEBUG
+    // clang-format off
+    logv ("%s: WAV file header file size: %u\t",        FILENAME, header.riff.file_siz);
+    logv ("%s: WAV file header block size: %u\t",       FILENAME, header.format.bloc_siz);
+    logv ("%s: WAV file header audio format: %u\t",     FILENAME, header.format.audio_format);
+    logv ("%s: WAV file header channels: %u\t",         FILENAME, header.format.channels);
+    logv ("%s: WAV file header frequency: %u\t",        FILENAME, header.format.frequency);
+    logv ("%s: WAV file header bytes per second: %u\t", FILENAME, header.format.bytes_per_sec);
+    logv ("%s: WAV file header bytes per block: %u\t",  FILENAME, header.format.bytes_per_bloc);
+    logv ("%s: WAV file header bits per sample: %u\t",  FILENAME, header.format.bits_per_sample);
+    logv ("%s: WAV file header data size: %u\t",        FILENAME, header.data.data_siz);
+// clang-format on
+#endif // !NDEBUG
 
     // stream builder
 
-    const int64_t nstimeout = 1000000000;
-    const int32_t channels  = 1;
+    const int64_t nstimeout   = 1000000000;
+    const int32_t channels    = header.format.channels;
+    const int32_t sample_rate = header.format.frequency;
 
     AAudioStreamBuilder *builder;
     aaudio_result_t      res = AAudio_createStreamBuilder (&builder);
 
+    AAudioStreamBuilder_setFormat (builder, AAUDIO_FORMAT_PCM_I16);
     AAudioStreamBuilder_setChannelCount (builder, channels);
-    AAudioStreamBuilder_setFormat (builder, AAUDIO_FORMAT_PCM_FLOAT);
+    AAudioStreamBuilder_setSampleRate (builder, sample_rate);
     AAudioStreamBuilder_setPerformanceMode (
         builder, AAUDIO_PERFORMANCE_MODE_POWER_SAVING);
+
+    // stream
 
     AAudioStream *stream;
     res = AAudioStreamBuilder_openStream (builder, &stream);
@@ -78,39 +82,39 @@ audio_play (const char *fn)
         return 1;
     }
 
-    logv ("%s: device id: %d", FILENAME, AAudioStream_getDeviceId (stream));
-    logv ("%s: direction: %d", FILENAME, AAudioStream_getDirection (stream));
-    logv ("%s: sharing mode: %d", FILENAME,
-          AAudioStream_getSharingMode (stream));
-
-    // stream
-
     const int32_t frames_per_burst = AAudioStream_getFramesPerBurst (stream);
-    const int32_t sample_rate      = AAudioStream_getSampleRate (stream);
     const int32_t buf_cap = AAudioStream_getBufferCapacityInFrames (stream);
     int32_t       buf_siz = AAudioStream_getBufferSizeInFrames (stream);
 
+#ifndef NDEBUG
+    // clang-format off
+    logv ("%s: device id: %d",        FILENAME, AAudioStream_getDeviceId (stream));
+    logv ("%s: direction: %d",        FILENAME, AAudioStream_getDirection (stream));
+    logv ("%s: sharing mode: %d",     FILENAME, AAudioStream_getSharingMode (stream));
+    logv ("%s: stream channels: %d",  FILENAME, channels);
     logv ("%s: frames_per_burst: %d", FILENAME, frames_per_burst);
-    logv ("%s: sample_rate: %d", FILENAME, sample_rate);
-    logv ("%s: buf_cap: %d", FILENAME, buf_cap);
-    logv ("%s: buf_siz: %d", FILENAME, buf_siz);
+    logv ("%s: sample_rate: %d",      FILENAME, sample_rate);
+    logv ("%s: buf_cap: %d",          FILENAME, buf_cap);
+    logv ("%s: buf_siz: %d",          FILENAME, buf_siz);
+    // clang-format on
+#endif // !NDEBUG
 
     AAudioStream_requestStart (stream);
     aaudio_stream_state_t state = AAUDIO_STREAM_STATE_UNINITIALIZED;
     res                         = AAudioStream_waitForStateChange (
         stream, AAUDIO_STREAM_STATE_STARTING, &state, nstimeout);
 
-    const size_t buflen = frames_per_burst * channels;
-    float       *buf    = malloc (buflen * sizeof (float));
+    const size_t buflen      = frames_per_burst * channels;
+    pcm_data_t  *buf         = malloc (buflen * sizeof (pcm_data_t));
+    int32_t      prev_ur_cnt = 0;
 
-    int32_t        prev_ur_cnt = 0;
-    const uint64_t MAX_ITER    = 100;
-    uint64_t       i           = 0;
+    const time_t timer_start = time (NULL);
+    const time_t dur         = 5;
 
     logi ("%s: Stream started. Playing audio...", FILENAME);
 
-    while (i++ < MAX_ITER && res >= AAUDIO_OK) {
-        fread (buf, sizeof (float), buflen, fp);
+    while (time (NULL) - timer_start < dur && res >= AAUDIO_OK) {
+        fread (buf, sizeof (pcm_data_t), buflen, fp);
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {
@@ -135,7 +139,8 @@ audio_play (const char *fn)
     free (buf);
     fclose (fp);
 
-    logi ("%s: Audio play ended. Stopping stream...", FILENAME);
+    logi ("%s: Audio play ended after %ld secs. Stopping stream...", FILENAME,
+          dur);
 
     AAudioStream_requestStop (stream);
     state = AAUDIO_STREAM_STATE_UNINITIALIZED;
