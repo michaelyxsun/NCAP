@@ -1,10 +1,12 @@
+#include <errno.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
-// #include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <aaudio/AAudio.h>
+#include <string.h>
 
 #include "audio.h"
 #include "util.h"
@@ -32,33 +34,32 @@ gentone (int32_t sample_rate)
 }
 
 int
-audio_play (void)
+audio_play (const char *fn)
 {
-    /*
-    const char *fn = "/Music/playlist/audio.m4a";
-    FILE       *fp = fopen (fn, "rb");
+    FILE *fp = fopen (fn, "rb");
 
     if (fp == NULL) {
-        __android_log_print (ANDROID_LOG_ERROR, APPID,
-                             "Failed to open file `%s'", fn);
+        loge ("%s: Failed to open file `%s': error: %s", FILENAME, fn,
+              strerror (errno));
         return 1;
-    } else {
-        __android_log_print (ANDROID_LOG_INFO, APPID, "Opened file `%s'", fn);
     }
+
+    logi ("%s: Opened file `%s'", FILENAME, fn);
 
     // TODO(M-Y-Sun): adjust for different file types
     uint8_t      header[HEADER_MAX_SIZ];
-    const size_t headersiz = 2;
+    const size_t headersiz = 44;
+    fread (header, sizeof (uint8_t), headersiz, fp);
 
-    fread (header, sizeof header, headersiz, fp);
-
+    fseek (fp, 0, SEEK_END);
     const size_t datasiz = ftell (fp) - headersiz;
-    */
+
+    fseek (fp, headersiz, SEEK_SET);
+
+    // stream builder
 
     const int64_t nstimeout = 1000000000;
     const int32_t channels  = 1;
-
-    // stream builder
 
     AAudioStreamBuilder *builder;
     aaudio_result_t      res = AAudio_createStreamBuilder (&builder);
@@ -77,6 +78,11 @@ audio_play (void)
         return 1;
     }
 
+    logv ("%s: device id: %d", FILENAME, AAudioStream_getDeviceId (stream));
+    logv ("%s: direction: %d", FILENAME, AAudioStream_getDirection (stream));
+    logv ("%s: sharing mode: %d", FILENAME,
+          AAudioStream_getSharingMode (stream));
+
     // stream
 
     const int32_t frames_per_burst = AAudioStream_getFramesPerBurst (stream);
@@ -94,7 +100,8 @@ audio_play (void)
     res                         = AAudioStream_waitForStateChange (
         stream, AAUDIO_STREAM_STATE_STARTING, &state, nstimeout);
 
-    float *buf = malloc (frames_per_burst * channels * sizeof (float));
+    const size_t buflen = frames_per_burst * channels;
+    float       *buf    = malloc (buflen * sizeof (float));
 
     int32_t        prev_ur_cnt = 0;
     const uint64_t MAX_ITER    = 100;
@@ -103,14 +110,7 @@ audio_play (void)
     logi ("%s: Stream started. Playing audio...", FILENAME);
 
     while (i++ < MAX_ITER && res >= AAUDIO_OK) {
-        float *data = buf;
-
-        for (int32_t f = 0; f < frames_per_burst; ++f) {
-            for (int32_t c = 0; c < channels; ++c) {
-                *data++ = gentone (sample_rate);
-            }
-        }
-
+        fread (buf, sizeof (float), buflen, fp);
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {
@@ -133,6 +133,7 @@ audio_play (void)
     // deinit
 
     free (buf);
+    fclose (fp);
 
     logi ("%s: Audio play ended. Stopping stream...", FILENAME);
 

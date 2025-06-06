@@ -9,7 +9,7 @@ static const char *FILENAME = "native-lib.c";
 static void *
 tfn_audio_play (void *errstat)
 {
-    *(int *)errstat = audio_play ();
+    *(int *)errstat = audio_play ("/sdcard/Download/out.wav");
     pthread_exit (NULL);
 }
 
