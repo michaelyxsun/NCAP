@@ -12,7 +12,7 @@ static const char *FILENAME = "render.c";
 void
 render (void)
 {
-    InitWindow (0, 0, "com.msun.rlcap");
+    InitWindow (0, 0, "com.msun.ncap");
 
     const int FPS = 60;
     SetTargetFPS (FPS);

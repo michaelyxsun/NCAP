@@ -1,6 +1,6 @@
 #include <android/log.h>
 
-#define APPID "com.msun.rlcap"
+#define APPID "com.msun.ncap"
 
 #define loge(...) __android_log_print (ANDROID_LOG_ERROR, APPID, __VA_ARGS__)
 #define logi(...) __android_log_print (ANDROID_LOG_INFO, APPID, __VA_ARGS__)

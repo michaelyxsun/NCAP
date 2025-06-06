@@ -1,9 +1,9 @@
-package com.msun.rlcap;
+package com.msun.ncap;
 
 import android.app.NativeActivity;
 import android.os.Bundle;
 
-import com.msun.rlcap.databinding.ActivityMainBinding;
+import com.msun.ncap.databinding.ActivityMainBinding;
 
 public class MainActivity extends NativeActivity {
     static {

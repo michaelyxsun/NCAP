@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RLCAP"
+rootProject.name = "NCAP"
 include(":app")
  

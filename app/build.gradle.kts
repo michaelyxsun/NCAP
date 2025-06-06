@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace = "com.msun.rlcap"
+    namespace = "com.msun.ncap"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.msun.rlcap"
+        applicationId = "com.msun.ncap"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
