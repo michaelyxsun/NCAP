@@ -20,7 +20,7 @@ gentone (int32_t sample_rate)
 {
     static float phase = 0;
 
-    const float amp  = 1;
+    const float amp  = 0.5;
     const float freq = 440;
 
     phase += freq * TWO_PI / sample_rate;
@@ -55,8 +55,10 @@ audio_play (void)
     const size_t datasiz = ftell (fp) - headersiz;
     */
 
-    const uint64_t nstimeout = 100000000;
-    const int      channels  = 1;
+    const int64_t nstimeout = 1000000000;
+    const int32_t channels  = 1;
+
+    // stream builder
 
     AAudioStreamBuilder *builder;
     aaudio_result_t      res = AAudio_createStreamBuilder (&builder);
@@ -75,10 +77,17 @@ audio_play (void)
         return 1;
     }
 
+    // stream
+
     const int32_t frames_per_burst = AAudioStream_getFramesPerBurst (stream);
     const int32_t sample_rate      = AAudioStream_getSampleRate (stream);
+    const int32_t buf_cap = AAudioStream_getBufferCapacityInFrames (stream);
+    int32_t       buf_siz = AAudioStream_getBufferSizeInFrames (stream);
 
-    logd ("%s: Using frames per burst %u", FILENAME, frames_per_burst);
+    logv ("%s: frames_per_burst: %d", FILENAME, frames_per_burst);
+    logv ("%s: sample_rate: %d", FILENAME, sample_rate);
+    logv ("%s: buf_cap: %d", FILENAME, buf_cap);
+    logv ("%s: buf_siz: %d", FILENAME, buf_siz);
 
     AAudioStream_requestStart (stream);
     aaudio_stream_state_t state = AAUDIO_STREAM_STATE_UNINITIALIZED;
@@ -87,10 +96,11 @@ audio_play (void)
 
     float *buf = malloc (frames_per_burst * channels * sizeof (float));
 
-    logi ("%s: Stream started. Playing audio...", FILENAME);
+    int32_t        prev_ur_cnt = 0;
+    const uint64_t MAX_ITER    = 100;
+    uint64_t       i           = 0;
 
-    const uint64_t MAX_ITER = 100;
-    uint64_t       i        = 0;
+    logi ("%s: Stream started. Playing audio...", FILENAME);
 
     while (i++ < MAX_ITER && res >= AAUDIO_OK) {
         float *data = buf;
@@ -102,7 +112,25 @@ audio_play (void)
         }
 
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
+
+        if (buf_siz < buf_cap) {
+            int32_t ur_cnt = AAudioStream_getXRunCount (stream);
+
+            logd ("%s: Underruns: %d", FILENAME, ur_cnt);
+
+            if (ur_cnt > prev_ur_cnt) {
+                prev_ur_cnt = ur_cnt;
+                buf_siz     = AAudioStream_setBufferSizeInFrames (
+                    stream, buf_siz + frames_per_burst);
+            }
+        }
     }
+
+    if (res < AAUDIO_OK)
+        loge ("%s: Write loop stopped due to AAudio error with code %d.",
+              FILENAME, res);
+
+    // deinit
 
     free (buf);
 
