@@ -48,7 +48,7 @@ audio_play (const char *fn)
     logv ("%s: WAV file header block size: %u\t",       FILENAME, header.format.bloc_siz);
     logv ("%s: WAV file header audio format: %u\t",     FILENAME, header.format.audio_format);
     logv ("%s: WAV file header channels: %u\t",         FILENAME, header.format.channels);
-    logv ("%s: WAV file header frequency: %u\t",        FILENAME, header.format.frequency);
+    logv ("%s: WAV file header sample rate: %u\t",        FILENAME, header.format.sample_rate);
     logv ("%s: WAV file header bytes per second: %u\t", FILENAME, header.format.bytes_per_sec);
     logv ("%s: WAV file header bytes per block: %u\t",  FILENAME, header.format.bytes_per_bloc);
     logv ("%s: WAV file header bits per sample: %u\t",  FILENAME, header.format.bits_per_sample);
@@ -60,7 +60,7 @@ audio_play (const char *fn)
 
     const int64_t nstimeout   = 1000000000;
     const int32_t channels    = header.format.channels;
-    const int32_t sample_rate = header.format.frequency;
+    const int32_t sample_rate = header.format.sample_rate;
 
     AAudioStreamBuilder *builder;
     aaudio_result_t      res = AAudio_createStreamBuilder (&builder);

@@ -1,26 +1,26 @@
 [
-  {
-    "directory": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c",
-    "file": "native-lib.c",
-    "output": "/Users/msun/tmp/native-lib-1fee2d.o",
-    "arguments": [
-      "/opt/homebrew/Cellar/llvm@17/17.0.6/bin/clang-17",
-      "-xc",
-      "--sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX14.sdk",
-      "native-lib.c",
-      "-o",
-      "/Users/msun/tmp/native-lib-1fee2d.o",
-      "-I",
-      "/opt/homebrew/Cellar/raylib/5.5/include",
-      "-L/opt/homebrew/Cellar/raylib/5.5/lib",
-      "-lraylib",
-      "-I",
-      "/Users/msun/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/include",
-      "-mlinker-version=1053.12",
-      "-dumpdir",
-      "main-",
-      "-mmacos-version-min=15.0.0",
-      "--target=arm64-apple-macosx15.0.0"
-    ]
-  }
+{
+  "directory": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c",
+  "command": "/usr/bin/cc -Dmain_EXPORTS -I/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/deps/libav/include  -arch arm64 -fPIC -o CMakeFiles/main.dir/native-lib.c.o -c /Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/native-lib.c",
+  "file": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/native-lib.c",
+  "output": "CMakeFiles/main.dir/native-lib.c.o"
+},
+{
+  "directory": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c",
+  "command": "/usr/bin/cc -Dmain_EXPORTS -I/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/deps/libav/include  -arch arm64 -fPIC -o CMakeFiles/main.dir/render.c.o -c /Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/render.c",
+  "file": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/render.c",
+  "output": "CMakeFiles/main.dir/render.c.o"
+},
+{
+  "directory": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c",
+  "command": "/usr/bin/cc -Dmain_EXPORTS -I/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/deps/libav/include  -arch arm64 -fPIC -o CMakeFiles/main.dir/audio.c.o -c /Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/audio.c",
+  "file": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/audio.c",
+  "output": "CMakeFiles/main.dir/audio.c.o"
+},
+{
+  "directory": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c",
+  "command": "/usr/bin/cc -Dmain_EXPORTS -I/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/deps/libav/include  -arch arm64 -fPIC -o CMakeFiles/main.dir/libav_bind.c.o -c /Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/libav_bind.c",
+  "file": "/Users/msun/programming/git-workspace/projects/ncap/app/src/main/c/libav_bind.c",
+  "output": "CMakeFiles/main.dir/libav_bind.c.o"
+}
 ]

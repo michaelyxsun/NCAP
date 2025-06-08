@@ -7,6 +7,9 @@ android {
     compileSdk = 35
 
     defaultConfig {
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
         applicationId = "com.msun.ncap"
         minSdk = 26
         targetSdk = 35

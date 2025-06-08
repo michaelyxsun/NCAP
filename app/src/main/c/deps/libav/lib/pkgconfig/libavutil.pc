@@ -1,0 +1,14 @@
+prefix=../libav
+exec_prefix=${prefix}
+libdir=../libav/lib
+includedir=../libav/include
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 59.39.100
+Requires: 
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavutil 
+Libs.private: -pthread -lm -latomic -landroid -lmediandk
+Cflags: -I${includedir}

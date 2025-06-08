@@ -5,7 +5,7 @@
 # Sets the minimum CMake version required for this project.
 cmake_minimum_required(VERSION 3.25.0)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Declares the project name. The project name can be accessed via ${
 # PROJECT_NAME}, Since this is the top level CMakeLists.txt, the project name is
@@ -32,6 +32,26 @@ add_subdirectory(deps/raylib)
 set(CMAKE_SHARED_LINKER_FLAGS
     "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
 
+# link_directories(deps/libav)
+include_directories(deps/libav/include)
+
+set(libav-libs swresample avutil avcodec)
+foreach(lib IN LISTS libav-libs)
+  add_library(${lib} SHARED IMPORTED)
+  set_target_properties(
+    ${lib} PROPERTIES IMPORTED_LOCATION
+                      ${CMAKE_SOURCE_DIR}/deps/libav/lib${lib}.so)
+endforeach()
+
+# # ffmpeg link
+#
+# link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+# include_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/include)
+#
+# include(ExternalProject) set(FFMPEG_LIBS avutil avcodec)
+# set(FFMPEG_CONFIGURE_EXTRAS --enable-jni --enable-mediacodec)
+# include(ffmpeg.cmake)
+
 # Creates and names a library, sets it as either STATIC or SHARED, and provides
 # the relative paths to its source code. You can define multiple libraries, and
 # CMake builds them for you. Gradle automatically packages shared libraries with
@@ -48,10 +68,9 @@ set(CMAKE_SHARED_LINKER_FLAGS
 add_library(
   ${CMAKE_PROJECT_NAME} SHARED
   # List C/C++ source files with relative paths to this CMakeLists.txt.
-  native-lib.c render.c audio.c)
+  native-lib.c render.c audio.c libav_bind.c)
 
-# target_include_directories( ${CMAKE_PROJECT_NAME} PRIVATE
-# "/opt/homebrew/Cellar/openjdk/23.0.2/include")
+# add_dependencies(${CMAKE_PROJECT_NAME} ffmpeg_target)
 
 # Specifies libraries CMake should link to your target library. You can link
 # libraries from various origins, such as libraries defined in this build
@@ -59,4 +78,4 @@ add_library(
 target_link_libraries(
   ${CMAKE_PROJECT_NAME}
   # List libraries link to the target library
-  android raylib aaudio log)
+  android raylib aaudio ${libav-libs} log)

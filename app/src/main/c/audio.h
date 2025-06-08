@@ -20,7 +20,7 @@ struct wav_header_t {
         uint32_t bloc_siz;
         uint16_t audio_format;
         uint16_t channels;
-        uint32_t frequency;
+        uint32_t sample_rate;
         uint32_t bytes_per_sec;
         uint16_t bytes_per_bloc;
         uint16_t bits_per_sample;
@@ -31,6 +31,8 @@ struct wav_header_t {
         uint32_t data_siz;
     } data;
 };
+
+extern int libav_cvt_wav (FILE *const fp_in, FILE *const fp_out);
 
 extern void parse_header_wav (struct wav_header_t *header, FILE *fp);
 
