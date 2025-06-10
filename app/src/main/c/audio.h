@@ -32,7 +32,7 @@ struct wav_header_t {
     } data;
 };
 
-extern int libav_cvt_wav (FILE *const fp_in, FILE *const fp_out);
+extern int libav_cvt_wav (const char *fn_in, const char *fn_out);
 
 extern int audio_play (const char *fn);
 

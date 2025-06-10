@@ -35,7 +35,7 @@ set(CMAKE_SHARED_LINKER_FLAGS
 # link_directories(deps/libav)
 include_directories(deps/libav/include)
 
-set(libav-libs swresample avutil avcodec)
+set(libav-libs swresample avutil avcodec avformat)
 foreach(lib IN LISTS libav-libs)
   add_library(${lib} SHARED IMPORTED)
   set_target_properties(

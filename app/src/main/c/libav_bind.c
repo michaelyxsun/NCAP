@@ -115,15 +115,91 @@ decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
     return 0;
 }
 
+const AVCodec *
+get_audio_codec (const char *fn)
+{
+    AVFormatContext *ctx   = avformat_alloc_context ();
+    AVCodec         *codec = NULL;
+
+    if (ctx == NULL) {
+        loge ("%s: ERROR: avformat_alloc_context failed\n", FILENAME);
+        return NULL;
+    }
+
+    int avret;
+
+    if ((avret = avformat_open_input (&ctx, fn, NULL, NULL)) != 0) {
+        loge ("%s: ERROR: avformat_open_input failed with error code %d\n",
+              FILENAME, avret);
+        goto deinit_ctx;
+    }
+
+    if ((avret = avformat_find_stream_info (ctx, NULL)) < 0) {
+        loge (
+            "%s: ERROR: avformat_find_stream_info failed with error code %d\n",
+            FILENAME, avret);
+        goto deinit_ctx;
+    }
+
+    logd ("%s: AVFormat format:\t%s\n", FILENAME, ctx->iformat->name);
+    logd ("%s: AVFormat duration:\t%lld\n", FILENAME, ctx->duration);
+    logd ("%s: AVFormat bit rate:\t%lld\n", FILENAME, ctx->bit_rate);
+
+    if (ctx->nb_streams != 1) {
+        loge ("%s: expected 1 audio input stream, found %d\n", FILENAME,
+              ctx->nb_streams);
+        goto deinit_ctx;
+    }
+
+    const AVCodecParameters *const params = ctx->streams[0]->codecpar;
+
+    if (params->codec_type != AVMEDIA_TYPE_AUDIO) {
+        loge ("%s: not an input stream, found %d\n", FILENAME,
+              params->codec_type);
+        goto deinit_ctx;
+    }
+
+    codec = (AVCodec *)avcodec_find_decoder (params->codec_id);
+
+    logd ("%s: codec_id:\t%d\n", FILENAME, codec->id);
+    logd ("%s: codec name:\t%s\n", FILENAME, codec->name);
+    logd ("%s: codec long name:\t%s\n", FILENAME, codec->long_name);
+
+    logd ("%s: channels:\t%d\n", FILENAME, params->ch_layout.nb_channels);
+    logd ("%s: block align:\t%d\n", FILENAME, params->block_align);
+
+deinit_ctx:
+    avformat_close_input (&ctx);
+
+    return codec;
+}
+
 int
-libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
+libav_cvt_wav (const char *fn_in, const char *fn_out)
 {
     int ret = EXIT_SUCCESS;
 
-    AVPacket *pkt = av_packet_alloc (); // 1: deinit_pkt
+    FILE *fp_in = fopen (fn_in, "rb"); // 1: deinit_fp_in
 
-    // TODO(M-Y-SUN): detect audio decoder
-    const AVCodec *codec = avcodec_find_decoder (AV_CODEC_ID_MP3);
+    if (fp_in == NULL) {
+        fprintf (stderr, "ERROR: fopen `%s' failed for rb\n", fn_in);
+        return EXIT_FAILURE;
+    }
+
+    FILE *fp_out = fopen (fn_out, "wb"); // 2: deinit_fp_out
+
+    if (fn_out == NULL) {
+        fprintf (stderr, "ERROR: fopen `%s' failed for wb\n", fn_out);
+        ret = EXIT_FAILURE;
+        goto deinit_fp_in;
+    }
+
+    // init decoder
+
+    AVPacket *pkt = av_packet_alloc (); // 3: deinit_pkt
+
+    // const AVCodec *codec = avcodec_find_decoder (AV_CODEC_ID_MP3);
+    const AVCodec *codec = get_audio_codec (fn_in);
 
     if (codec == NULL) {
         loge ("%s: ERROR: avcodec_find_decoder failed\n", FILENAME);
@@ -131,7 +207,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     }
 
     AVCodecParserContext *parser
-        = av_parser_init (codec->id); // 2: deinit_parser
+        = av_parser_init (codec->id); // 4: deinit_parser
 
     if (parser == NULL) {
         loge ("%s: ERROR: av_parser_init failed\n", FILENAME);
@@ -139,7 +215,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
         goto deinit_pkt;
     }
 
-    AVCodecContext *ctx = avcodec_alloc_context3 (codec); // 3: deinit_ctx
+    AVCodecContext *ctx = avcodec_alloc_context3 (codec); // 5: deinit_ctx
 
     if (ctx == NULL) {
         loge ("%s: ERROR: avcodec_alloc_context3 failed\n", FILENAME);
@@ -163,7 +239,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     if (frame == NULL) {
         loge ("%s: ERROR: av_frame_alloc failed\n", FILENAME);
         ret = EXIT_FAILURE;
-        goto deinit_fout;
+        goto deinit_ctx;
     }
 
     // allocate space for WAV header
@@ -239,12 +315,6 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
 deinit: // deinit_frame:
     av_frame_free (&frame);
 
-deinit_fout:
-    fclose (fp_out);
-
-deinit_fin:
-    fclose (fp_in);
-
 deinit_ctx:
     avcodec_free_context (&ctx);
 
@@ -253,6 +323,11 @@ deinit_parser:
 
 deinit_pkt:
     av_packet_free (&pkt);
+deinit_fp_out:
+    fclose (fp_out);
+
+deinit_fp_in:
+    fclose (fp_in);
 
     return 0;
 }
