@@ -37,6 +37,8 @@
 
 #include <libavcodec/avcodec.h>
 
+#include <libavformat/avformat.h>
+
 #include "audio.h"
 #include "util.h"
 
@@ -85,8 +87,8 @@ decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
     int avret = avcodec_send_packet (dec_ctx, pkt);
 
     if (avret < 0) {
-        fprintf (stderr, "ERROR: avcodec_send_packet failed with code %d\n",
-                 avret);
+        loge ("%s: ERROR: avcodec_send_packet failed with code %d\n", FILENAME,
+              avret);
         return -1;
     }
 
@@ -97,7 +99,7 @@ decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
         if (avret == AVERROR (EAGAIN) || avret == AVERROR_EOF) {
             return 0;
         } else if (avret < 0) {
-            fprintf (stderr, "ERROR: Decode error with code %d\n", avret);
+            loge ("%s: ERROR: Decode error with code %d\n", FILENAME, avret);
             return -1;
         }
 
@@ -124,7 +126,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     const AVCodec *codec = avcodec_find_decoder (AV_CODEC_ID_MP3);
 
     if (codec == NULL) {
-        fprintf (stderr, "ERROR: avcodec_find_decoder failed\n");
+        loge ("%s: ERROR: avcodec_find_decoder failed\n", FILENAME);
         return EXIT_FAILURE;
     }
 
@@ -132,7 +134,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
         = av_parser_init (codec->id); // 2: deinit_parser
 
     if (parser == NULL) {
-        fprintf (stderr, "ERROR: av_parser_init failed\n");
+        loge ("%s: ERROR: av_parser_init failed\n", FILENAME);
         ret = EXIT_FAILURE;
         goto deinit_pkt;
     }
@@ -140,7 +142,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     AVCodecContext *ctx = avcodec_alloc_context3 (codec); // 3: deinit_ctx
 
     if (ctx == NULL) {
-        fprintf (stderr, "ERROR: avcodec_alloc_context3 failed\n");
+        loge ("%s: ERROR: avcodec_alloc_context3 failed\n", FILENAME);
         ret = EXIT_FAILURE;
         goto deinit_parser;
     }
@@ -148,7 +150,8 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     int avret = avcodec_open2 (ctx, codec, NULL);
 
     if (avret < 0) {
-        fprintf (stderr, "ERROR: avcodec_open2 failed with code %d\n", avret);
+        loge ("%s: ERROR: avcodec_open2 failed with code %d\n", FILENAME,
+              avret);
         ret = EXIT_FAILURE;
         goto deinit_ctx;
     }
@@ -158,7 +161,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     AVFrame *frame = av_frame_alloc (); // 6: deinit_frame
 
     if (frame == NULL) {
-        fprintf (stderr, "ERROR: av_frame_alloc failed\n");
+        loge ("%s: ERROR: av_frame_alloc failed\n", FILENAME);
         ret = EXIT_FAILURE;
         goto deinit_fout;
     }
@@ -178,8 +181,8 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
                                 datasiz, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
 
         if (nbytes < 0) {
-            fprintf (stderr, "ERROR: av_parser_parse2 failed with code %d\n",
-                     nbytes);
+            loge ("%s: ERROR: av_parser_parse2 failed with code %d\n",
+                  FILENAME, nbytes);
             ret = EXIT_FAILURE;
             goto deinit;
         }
