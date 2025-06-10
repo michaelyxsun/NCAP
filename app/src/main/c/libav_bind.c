@@ -38,51 +38,42 @@
 #include <libavcodec/avcodec.h>
 
 #include "audio.h"
+#include "util.h"
 
 #define AUDIO_INBUF_SIZE    20480
 #define AUDIO_REFILL_THRESH 4096
 
+static const char *FILENAME = "libav_bind.c";
+
+/**
+ * call after initialization of ctx
+ */
 static void
-gen_wav_header_nosiz (struct wav_header_t        *header,
-                      const AVCodecContext *const ctx)
+gen_wav_header (struct wav_header_t *header, const AVCodecContext *const ctx,
+                uint32_t datasiz, uint32_t samples)
 {
     // RIFF chunk
     strncpy (header->riff.RIFF, "RIFF", sizeof header->riff.RIFF);
     strncpy (header->riff.WAVE, "WAVE", sizeof header->riff.WAVE);
-    // fill in later with wav_header_set_siz
-    const uint32_t filesiz = header->riff.file_siz = 0;
+    header->riff.file_siz = datasiz + WAV_HEADER_SIZ - 8;
 
     // data format chunk
-    strncpy (header->format.FMT_, "FMT\0", sizeof header->format.FMT_);
-    header->format.bloc_siz     = 16;
-    header->format.audio_format = 1;
-    const uint32_t channels     = header->format.channels
-        = ctx->ch_layout.nb_channels;
-    const uint32_t sample_rate = header->format.sample_rate = ctx->sample_rate;
-    const uint32_t bits_per_sample = header->format.bits_per_sample
-        = ctx->bits_per_raw_sample;
-    header->format.bytes_per_sec
-        = (sample_rate * bits_per_sample * channels) >> 3;
-    header->format.bytes_per_bloc = (sample_rate * bits_per_sample) << 3;
+    // clang-format off
+    strncpy (header->format.FMT_, "fmt\0", sizeof header->format.FMT_);
+    header->format.bloc_siz     = 16; // 16 is for PCM
+    header->format.audio_format = (int)ctx->sample_fmt % 5; // 1 is S16; 6 is S16P
+                                                            // 3 is float; 8 is float planar
+    const uint32_t channels     = header->format.channels    = ctx->ch_layout.nb_channels;
+    const uint32_t sample_rate  = header->format.sample_rate = ctx->sample_rate;
+    const uint32_t bytes_per_sample = av_get_bytes_per_sample (ctx->sample_fmt);
+    header->format.bits_per_sample  = bytes_per_sample << 3;
+    header->format.byte_rate        = sample_rate * channels * bytes_per_sample;
+    header->format.bloc_align       = channels * bytes_per_sample;
+    // clang-format on
 
     // sampled data chunk
-    strncpy (header->data.DATA, "DATA", sizeof header->data.DATA);
-    header->data.data_siz = filesiz - WAV_HEADER_SIZ;
-}
-
-/**
- * @param header Sets the RIFF file size in header if nonnull
- */
-static void
-wav_header_set_siz (FILE *fp, struct wav_header_t *header, uint32_t siz)
-{
-    fseek (fp, 5, SEEK_SET);
-    fwrite (&siz, sizeof siz, 1, fp);
-
-    assert (ftell (fp) == 9);
-
-    if (header != NULL)
-        header->riff.file_siz = siz;
+    strncpy (header->data.DATA, "data", sizeof header->data.DATA);
+    header->data.data_siz = samples * channels * bytes_per_sample;
 }
 
 /**
@@ -110,11 +101,11 @@ decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
             return -1;
         }
 
-        int data_size = av_get_bytes_per_sample (dec_ctx->sample_fmt);
+        int datasiz = av_get_bytes_per_sample (dec_ctx->sample_fmt);
 
         for (int f = 0; f < frame->nb_samples; f++) {
             for (int ch = 0; ch < dec_ctx->ch_layout.nb_channels; ch++) {
-                fwrite (frame->data[ch] + data_size * f, 1, data_size, fp_out);
+                fwrite (frame->data[ch] + datasiz * f, 1, datasiz, fp_out);
             }
         }
     }
@@ -130,7 +121,7 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
     AVPacket *pkt = av_packet_alloc (); // 1: deinit_pkt
 
     // TODO(M-Y-SUN): detect audio decoder
-    const AVCodec *codec = avcodec_find_decoder (AV_CODEC_ID_MP2);
+    const AVCodec *codec = avcodec_find_decoder (AV_CODEC_ID_MP3);
 
     if (codec == NULL) {
         fprintf (stderr, "ERROR: avcodec_find_decoder failed\n");
@@ -164,28 +155,27 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
 
     static uint8_t inbuf[AUDIO_INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
 
-    AVFrame *decoded_frame = av_frame_alloc (); // 6: deinit_frame
+    AVFrame *frame = av_frame_alloc (); // 6: deinit_frame
 
-    if (decoded_frame == NULL) {
+    if (frame == NULL) {
         fprintf (stderr, "ERROR: av_frame_alloc failed\n");
         ret = EXIT_FAILURE;
         goto deinit_fout;
     }
 
-    // construct WAV header
-
-    struct wav_header_t header;
-    gen_wav_header_nosiz (&header, ctx);
+    // allocate space for WAV header
+    fseek (fp_out, WAV_HEADER_SIZ, SEEK_SET);
 
     // decode until eof
-    uint8_t *data = inbuf;
-    size_t   data_size
-        = fread (inbuf, sizeof (uint8_t), AUDIO_INBUF_SIZE, fp_in);
 
-    while (data_size > 0) {
+    uint32_t samples = 0;
+    uint8_t *data    = inbuf;
+    size_t datasiz = fread (inbuf, sizeof (uint8_t), AUDIO_INBUF_SIZE, fp_in);
+
+    while (datasiz > 0) {
         int nbytes
             = av_parser_parse2 (parser, ctx, &pkt->data, &pkt->size, data,
-                                data_size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+                                datasiz, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
 
         if (nbytes < 0) {
             fprintf (stderr, "ERROR: av_parser_parse2 failed with code %d\n",
@@ -195,32 +185,56 @@ libav_cvt_wav (FILE *const fp_in, FILE *const fp_out)
         }
 
         data += nbytes;
-        data_size -= nbytes;
+        datasiz -= nbytes;
 
-        if (pkt->size > 0)
-            decode (ctx, pkt, decoded_frame, fp_out);
+        if (pkt->size > 0) {
+            decode (ctx, pkt, frame, fp_out);
+            samples += frame->nb_samples;
+        }
 
-        if (data_size < AUDIO_REFILL_THRESH) {
-            memmove (inbuf, data, data_size);
+        if (datasiz < AUDIO_REFILL_THRESH) {
+            memmove (inbuf, data, datasiz);
             data       = inbuf;
-            size_t len = fread (data + data_size, sizeof (uint8_t),
-                                AUDIO_INBUF_SIZE - data_size, fp_in);
+            size_t len = fread (data + datasiz, sizeof (uint8_t),
+                                AUDIO_INBUF_SIZE - datasiz, fp_in);
 
             if (len > 0)
-                data_size += len;
+                datasiz += len;
         }
     }
 
     // flush the decoder
     pkt->data = NULL;
     pkt->size = 0;
-    decode (ctx, pkt, decoded_frame, fp_out);
+    decode (ctx, pkt, frame, fp_out);
+    samples += frame->nb_samples;
 
-    // set header file size
-    wav_header_set_siz (fp_out, &header, ftell (fp_out) - WAV_HEADER_SIZ);
+    // construct and write WAV header
+    struct wav_header_t header;
+    gen_wav_header (&header, ctx, ftell (fp_out), samples);
+    fseek (fp_out, 0, SEEK_SET);
+    fwrite (&header, WAV_HEADER_SIZ, 1, fp_out);
+
+#ifndef NDEBUG
+    // clang-format off
+    logv ("%s: WAV header RIFF:\t%.4s",          FILENAME, header.riff.RIFF);
+    logv ("%s: WAV header file size:\t%u",       FILENAME, header.riff.file_siz);
+    logv ("%s: WAV header WAVE:\t%.4s",          FILENAME, header.riff.WAVE);
+    logv ("%s: WAV header fmt :\t%.4s",          FILENAME, header.format.FMT_);
+    logv ("%s: WAV header block size:\t%u",      FILENAME, header.format.bloc_siz);
+    logv ("%s: WAV header audio format:\t%u",    FILENAME, header.format.audio_format);
+    logv ("%s: WAV header channels:\t%u",        FILENAME, header.format.channels);
+    logv ("%s: WAV header sample rate:\t%u",     FILENAME, header.format.sample_rate);
+    logv ("%s: WAV header byte rate:\t%u",       FILENAME, header.format.byte_rate);
+    logv ("%s: WAV header block alignment:\t%u", FILENAME, header.format.bloc_align);
+    logv ("%s: WAV header bits per sample:\t%u", FILENAME, header.format.bits_per_sample);
+    logv ("%s: WAV header data:\t%.4s",          FILENAME, header.data.DATA);
+    logv ("%s: WAV header data size:\t%u",       FILENAME, header.data.data_siz);
+// clang-format on
+#endif // !NDEBUG
 
 deinit: // deinit_frame:
-    av_frame_free (&decoded_frame);
+    av_frame_free (&frame);
 
 deinit_fout:
     fclose (fp_out);

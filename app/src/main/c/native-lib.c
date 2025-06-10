@@ -12,7 +12,7 @@ static const char *FILENAME = "native-lib.c";
 static void *
 tfn_audio_play (void *errstat)
 {
-    const char *fn_in  = "/sdcard/Download/audio.mp2";
+    const char *fn_in  = "/sdcard/Download/audio.mp3";
     const char *fn_out = "/sdcard/Download/audio.wav";
 
     FILE *fp_in = fopen (fn_in, "rb");

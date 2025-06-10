@@ -4,26 +4,36 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include <aaudio/AAudio.h>
-#include <string.h>
 
 #include "audio.h"
 #include "util.h"
 
-typedef int16_t pcm_data_t;
-
 static const char *FILENAME = "audio.c";
 
-void
-parse_header_wav (struct wav_header_t *header, FILE *const fp)
+static void
+init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
 {
-    static_assert (sizeof (struct wav_header_t) == WAV_HEADER_SIZ,
-                   "Macro constant WAV_HEADER_SIZ does not match computed "
-                   "size of `struct wav_header_t' using `sizeof'");
-
-    fread (header, WAV_HEADER_SIZ, 1, fp);
+    switch (wav_fmt_code) {
+        case 1:
+            *fmt = AAUDIO_FORMAT_PCM_I16; // 1
+            assert (*siz == 2);
+            break;
+        case 2:
+            *fmt = AAUDIO_FORMAT_PCM_I32; // 4
+            *siz = 4;
+            break;
+        case 3:
+            *fmt = AAUDIO_FORMAT_PCM_FLOAT; // 2
+            *siz = 4;
+            break;
+        default:
+            *fmt = AAUDIO_FORMAT_UNSPECIFIED;
+            *siz = 2;
+    }
 }
 
 int
@@ -40,32 +50,44 @@ audio_play (const char *fn)
     logi ("%s: Opened file `%s'", FILENAME, fn);
 
     struct wav_header_t header;
-    parse_header_wav (&header, fp);
+    fread (&header, WAV_HEADER_SIZ, 1, fp);
 
 #ifndef NDEBUG
     // clang-format off
-    logv ("%s: WAV file header file size: %u\t",        FILENAME, header.riff.file_siz);
-    logv ("%s: WAV file header block size: %u\t",       FILENAME, header.format.bloc_siz);
-    logv ("%s: WAV file header audio format: %u\t",     FILENAME, header.format.audio_format);
-    logv ("%s: WAV file header channels: %u\t",         FILENAME, header.format.channels);
-    logv ("%s: WAV file header sample rate: %u\t",        FILENAME, header.format.sample_rate);
-    logv ("%s: WAV file header bytes per second: %u\t", FILENAME, header.format.bytes_per_sec);
-    logv ("%s: WAV file header bytes per block: %u\t",  FILENAME, header.format.bytes_per_bloc);
-    logv ("%s: WAV file header bits per sample: %u\t",  FILENAME, header.format.bits_per_sample);
-    logv ("%s: WAV file header data size: %u\t",        FILENAME, header.data.data_siz);
+    logv ("%s: WAV header RIFF:\t%.4s",          FILENAME, header.riff.RIFF);
+    logv ("%s: WAV header file size:\t%u",       FILENAME, header.riff.file_siz);
+    logv ("%s: WAV header WAVE:\t%.4s",          FILENAME, header.riff.WAVE);
+    logv ("%s: WAV header fmt :\t%.4s",          FILENAME, header.format.FMT_);
+    logv ("%s: WAV header block size:\t%u",      FILENAME, header.format.bloc_siz);
+    logv ("%s: WAV header audio format:\t%u",    FILENAME, header.format.audio_format);
+    logv ("%s: WAV header channels:\t%u",        FILENAME, header.format.channels);
+    logv ("%s: WAV header sample rate:\t%u",     FILENAME, header.format.sample_rate);
+    logv ("%s: WAV header byte rate:\t%u",       FILENAME, header.format.byte_rate);
+    logv ("%s: WAV header block alignment:\t%u", FILENAME, header.format.bloc_align);
+    logv ("%s: WAV header bits per sample:\t%u", FILENAME, header.format.bits_per_sample);
+    logv ("%s: WAV header data:\t%.4s",          FILENAME, header.data.DATA);
+    logv ("%s: WAV header data size:\t%u",       FILENAME, header.data.data_siz);
 // clang-format on
 #endif // !NDEBUG
 
     // stream builder
 
-    const int64_t nstimeout   = 1000000000;
-    const int32_t channels    = header.format.channels;
-    const int32_t sample_rate = header.format.sample_rate;
+    const uint64_t nstimeout   = 1000000000;
+    const uint32_t channels    = header.format.channels;
+    const uint32_t sample_rate = header.format.sample_rate;
 
     AAudioStreamBuilder *builder;
     aaudio_result_t      res = AAudio_createStreamBuilder (&builder);
 
-    AAudioStreamBuilder_setFormat (builder, AAUDIO_FORMAT_PCM_I16);
+    // init aaudio setup data
+    int    AAUDIO_FMT;
+    size_t PCM_DATA_WIDTH;
+    init_aaudio_fmt (header.format.audio_format, &AAUDIO_FMT, &PCM_DATA_WIDTH);
+
+    logi ("%s: Using AAudio format with code %d", FILENAME, AAUDIO_FMT);
+    logi ("%s: Using PCM data width of %zu", FILENAME, PCM_DATA_WIDTH);
+
+    AAudioStreamBuilder_setFormat (builder, AAUDIO_FMT);
     AAudioStreamBuilder_setChannelCount (builder, channels);
     AAudioStreamBuilder_setSampleRate (builder, sample_rate);
     AAudioStreamBuilder_setPerformanceMode (
@@ -105,7 +127,7 @@ audio_play (const char *fn)
         stream, AAUDIO_STREAM_STATE_STARTING, &state, nstimeout);
 
     const size_t buflen      = frames_per_burst * channels;
-    pcm_data_t  *buf         = malloc (buflen * sizeof (pcm_data_t));
+    void        *buf         = malloc (buflen * PCM_DATA_WIDTH);
     int32_t      prev_ur_cnt = 0;
 
     const time_t timer_start = time (NULL);
@@ -114,7 +136,7 @@ audio_play (const char *fn)
     logi ("%s: Stream started. Playing audio...", FILENAME);
 
     while (time (NULL) - timer_start < dur && res >= AAUDIO_OK) {
-        fread (buf, sizeof (pcm_data_t), buflen, fp);
+        fread (buf, PCM_DATA_WIDTH, buflen, fp);
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {
@@ -163,6 +185,3 @@ audio_play (const char *fn)
 
     return 0;
 }
-
-#undef HEADER_MAX_SIZ
-#undef TWO_PI
