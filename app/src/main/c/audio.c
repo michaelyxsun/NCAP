@@ -10,7 +10,7 @@
 #include <aaudio/AAudio.h>
 
 #include "audio.h"
-#include "util.h"
+#include "logging.h"
 
 static const char *FILENAME = "audio.c";
 
@@ -161,8 +161,8 @@ audio_play (const char *fn)
     free (buf);
     fclose (fp);
 
-    logi ("%s: Audio play ended after %ld secs. Stopping stream...", FILENAME,
-          dur);
+    logi ("%s: Audio play ended after %u secs. Stopping stream...", FILENAME,
+          (uint32_t)dur);
 
     AAudioStream_requestStop (stream);
     state = AAUDIO_STREAM_STATE_UNINITIALIZED;

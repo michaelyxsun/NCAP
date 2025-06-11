@@ -2,15 +2,15 @@
 #include <pthread.h>
 
 #include "audio.h"
+#include "logging.h"
 #include "render.h"
-#include "util.h"
 
 static const char *FILENAME = "native-lib.c";
 
 static void *
 tfn_audio_play (void *errstat)
 {
-    const char *fn_in  = "/sdcard/Download/audio.mp3";
+    const char *fn_in  = "/sdcard/Download/audio.m4a";
     const char *fn_out = "/sdcard/Download/audio.wav";
 
     libav_cvt_wav (fn_in, fn_out);

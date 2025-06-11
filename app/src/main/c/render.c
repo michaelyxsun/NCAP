@@ -2,8 +2,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "logging.h"
 #include "render.h"
-#include "util.h"
 
 #define MAX_TOUCH_POINTS 4
 
