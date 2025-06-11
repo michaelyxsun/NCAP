@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <pthread.h>
 
 #include "audio.h"
@@ -14,9 +13,8 @@ tfn_audio_play (void *errstat)
     const char *fn_out = "/sdcard/Download/audio.wav";
 
     libav_cvt_wav (fn_in, fn_out);
-
-    // *(int *)errstat = audio_play ("/sdcard/Download/out.wav");
     *(int *)errstat = audio_play (fn_out);
+
     pthread_exit (NULL);
 }
 

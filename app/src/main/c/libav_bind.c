@@ -270,40 +270,22 @@ libav_cvt_wav (const char *fn_in, const char *fn_out)
 
     // decode until eof
 
-    static uint8_t inbuf[AUDIO_INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
-    uint32_t       samples = 0;
-    uint8_t       *data    = inbuf;
-    size_t datasiz = fread (inbuf, sizeof (uint8_t), AUDIO_INBUF_SIZE, fp_in);
+    uint32_t samples = 0;
 
-    while (datasiz > 0) {
-        int nbytes
-            = av_parser_parse2 (parser, cctx, &pkt->data, &pkt->size, data,
-                                datasiz, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-
-        if (nbytes < 0) {
-            loge ("%s: ERROR: av_parser_parse2 failed with code %d\n",
-                  FILENAME, nbytes);
-            ret = EXIT_FAILURE;
-            goto deinit_pkt;
+    while (av_read_frame (fctx, pkt) >= 0) {
+        if (fctx->streams[pkt->stream_index]->codecpar->codec_type
+            != AVMEDIA_TYPE_AUDIO) {
+            loge ("%s: ERROR: packet read was not from audio stream. "
+                  "stopping...\n",
+                  FILENAME);
+            break;
         }
 
-        data += nbytes;
-        datasiz -= nbytes;
+        if (pkt->size <= 0)
+            continue;
 
-        if (pkt->size > 0) {
-            decode (cctx, pkt, frame, fp_out);
-            samples += frame->nb_samples;
-        }
-
-        if (datasiz < AUDIO_REFILL_THRESH) {
-            memmove (inbuf, data, datasiz);
-            data       = inbuf;
-            size_t len = fread (data + datasiz, sizeof (uint8_t),
-                                AUDIO_INBUF_SIZE - datasiz, fp_in);
-
-            if (len > 0)
-                datasiz += len;
-        }
+        decode (cctx, pkt, frame, fp_out);
+        samples += frame->nb_samples;
     }
 
     // flush the decoder
