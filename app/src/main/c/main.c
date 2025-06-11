@@ -4,7 +4,7 @@
 #include "logging.h"
 #include "render.h"
 
-static const char *FILENAME = "native-lib.c";
+static const char *FILENAME = "main.c";
 
 static void *
 tfn_audio_play (void *errstat)

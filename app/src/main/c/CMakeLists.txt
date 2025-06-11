@@ -68,7 +68,7 @@ endforeach()
 add_library(
   ${CMAKE_PROJECT_NAME} SHARED
   # List C/C++ source files with relative paths to this CMakeLists.txt.
-  native-lib.c render.c audio.c libav_bind.c)
+  main.c render.c audio.c libav_bind.c)
 
 # add_dependencies(${CMAKE_PROJECT_NAME} ffmpeg_target)
 
