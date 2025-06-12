@@ -2,16 +2,31 @@
 
 # move this into your ffmpeg directory
 
-CORES=6
+CORES=8
 TOOLCHAIN=/Users/msun/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64
 
+###### arch options ######
+
 # ABI=armeabi-v7a
-ABI=arm64-v8a
-ARCH=aarch64
+# ARCH=arm
+# CC="$TOOLCHAIN/bin/armv7a-linux-androideabi26-clang"
+
+# ABI=arm64-v8a
+# ARCH=aarch64
+# CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
+
+ABI=x86_64
+ARCH=x86_64
+CC="$TOOLCHAIN/bin/x86_64-linux-android26-clang"
+
+### this one doesnt work ###
+# ABI=x86
+# ARCH=i686
+# CC="$TOOLCHAIN/bin/i686-linux-android26-clang"
+
+###### end arch options ######
 
 PREFIX="../libav/$ABI"
-CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
-# CC="$TOOLCHAIN/bin/armv7a-linux-androideabi26-clang"
 
 # --as="$CC" \
 
@@ -31,9 +46,11 @@ CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
     --enable-shared \
     --disable-programs \
     --disable-doc \
+    --disable-encoders \
     --enable-protocol=file \
     --enable-pic \
     --prefix="$PREFIX" \
     --shlibdir="$PREFIX" \
     --logfile=configure.log &&
+    make clean &&
     make install -j "$CORES"

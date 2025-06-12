@@ -39,8 +39,9 @@ set(libav-libs swresample avutil avcodec avformat)
 foreach(lib IN LISTS libav-libs)
   add_library(${lib} SHARED IMPORTED)
   set_target_properties(
-    ${lib} PROPERTIES IMPORTED_LOCATION
-                      ${CMAKE_SOURCE_DIR}/deps/libav/arm64-v8a/lib${lib}.so)
+    ${lib}
+    PROPERTIES IMPORTED_LOCATION
+               ${CMAKE_SOURCE_DIR}/deps/libav/${ANDROID_ABI}/lib${lib}.so)
 endforeach()
 
 # # ffmpeg link

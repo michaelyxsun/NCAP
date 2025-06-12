@@ -8,7 +8,9 @@ android {
 
     defaultConfig {
         ndk {
-            abiFilters.add("arm64-v8a")
+            abiFilters.add ("armeabi-v7a")
+            abiFilters.add ("arm64-v8a")
+            abiFilters.add ("x86_64")
         }
         applicationId = "com.msun.ncap"
         minSdk = 26
