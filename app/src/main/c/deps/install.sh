@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
-# move this into the FFmpeg directory
+# move this into your ffmpeg directory
 
-PREFIX=../libav
-CORES=4
+CORES=6
 TOOLCHAIN=/Users/msun/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64
+
+# ABI=armeabi-v7a
+ABI=arm64-v8a
+ARCH=aarch64
+
+PREFIX="../libav/$ABI"
 CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
 # CC="$TOOLCHAIN/bin/armv7a-linux-androideabi26-clang"
 
@@ -12,12 +17,13 @@ CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
 
 ./configure \
     --cc="$CC" \
+    --ld="$CC" \
     --nm="$TOOLCHAIN/bin/llvm-nm" \
     --ar="$TOOLCHAIN/bin/llvm-ar" \
     --strip="$TOOLCHAIN/bin/llvm-strip" \
     --ranlib="$TOOLCHAIN/bin/llvm-ranlib" \
     --target-os=android \
-    --arch=arm64 \
+    --arch="$ARCH" \
     --extra-cflags="--gcc-toolchain=$TOOLCHAIN" \
     --sysroot="$TOOLCHAIN/sysroot" \
     --enable-cross-compile \
