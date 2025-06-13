@@ -11,7 +11,7 @@ cmake_minimum_required(VERSION 3.25.0)
 # PROJECT_NAME}, Since this is the top level CMakeLists.txt, the project name is
 # also accessible with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync
 # within the top level build script scope).
-project("main" C)
+project("native-activity" C)
 
 set(BUILD_EXAMPLES
     OFF
@@ -29,9 +29,6 @@ set(PLATFORM
 
 add_subdirectory(deps/raylib)
 
-set(CMAKE_SHARED_LINKER_FLAGS
-    "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
-
 # link_directories(deps/libav)
 include_directories(deps/libav/include)
 
@@ -44,24 +41,17 @@ foreach(lib IN LISTS libav-libs)
                ${CMAKE_SOURCE_DIR}/deps/libav/${ANDROID_ABI}/lib${lib}.so)
 endforeach()
 
-# # ffmpeg link
-#
-# link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-# include_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/include)
-#
-# include(ExternalProject) set(FFMPEG_LIBS avutil avcodec)
-# set(FFMPEG_CONFIGURE_EXTRAS --enable-jni --enable-mediacodec)
-# include(ffmpeg.cmake)
+# build native_app_glue as a static lib
 
-# Creates and names a library, sets it as either STATIC or SHARED, and provides
-# the relative paths to its source code. You can define multiple libraries, and
-# CMake builds them for you. Gradle automatically packages shared libraries with
-# your APK.
-#
-# In this top level CMakeLists.txt, ${CMAKE_PROJECT_NAME} is used to define the
-# target library name; in the sub-module's CMakeLists.txt, ${PROJECT_NAME} is
-# preferred for the same purpose.
-#
+include_directories(${CMAKE_PROJECT_NAME}
+                    ${NDK}/sources/android/native_app_glue)
+
+add_library(native_app_glue STATIC
+            ${NDK}/sources/android/native_app_glue/android_native_app_glue.c)
+
+set(CMAKE_SHARED_LINKER_FLAGS
+    "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
+
 # In order to load a library into your app from Java/Kotlin, you must call
 # System.loadLibrary() and pass the name of the library defined here; for
 # GameActivity/NativeActivity derived applications, the same library name must
@@ -71,12 +61,15 @@ add_library(
   # List C/C++ source files with relative paths to this CMakeLists.txt.
   main.c render.c audio.c libav_bind.c)
 
-# add_dependencies(${CMAKE_PROJECT_NAME} ffmpeg_target)
-
 # Specifies libraries CMake should link to your target library. You can link
 # libraries from various origins, such as libraries defined in this build
 # script, prebuilt third-party libraries, or Android system libraries.
 target_link_libraries(
   ${CMAKE_PROJECT_NAME}
   # List libraries link to the target library
-  android raylib aaudio ${libav-libs} log)
+  android
+  native_app_glue
+  raylib
+  aaudio
+  ${libav-libs}
+  log)

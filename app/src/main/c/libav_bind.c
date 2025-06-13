@@ -27,9 +27,9 @@
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
 
@@ -124,17 +124,16 @@ init_codec (const char *fn, AVFormatContext **fctx)
     int avret;
 
     if ((avret = avformat_open_input (fctx, fn, NULL, NULL)) != 0) {
-        fprintf (stderr,
-                 "ERROR: avformat_open_input failed with error code %d: %s\n",
-                 avret, av_err2str (avret));
+        loge ("%s: ERROR: avformat_open_input failed with error code %d: %s\n",
+              FILENAME, avret, av_err2str (avret));
         return NULL;
     }
 
     if ((avret = avformat_find_stream_info (*fctx, NULL)) < 0) {
-        fprintf (
-            stderr,
-            "ERROR: avformat_find_stream_info failed with error code %d\n",
-            avret);
+        loge (
+
+            "%s: ERROR: avformat_find_stream_info failed with error code %d\n",
+            FILENAME, avret);
         return NULL;
     }
 
@@ -170,7 +169,7 @@ init_codec (const char *fn, AVFormatContext **fctx)
     return codec;
 }
 
-static const AVCodec *
+static int
 init_codec_context (const AVCodec *const codec, const AVStream *const stream,
                     AVCodecContext **cctx)
 {
@@ -181,16 +180,16 @@ init_codec_context (const AVCodec *const codec, const AVStream *const stream,
         loge ("%s: ERROR: avcodec_parameters_to_context failed with error "
               "code %d: %s\n",
               FILENAME, avret, av_err2str (avret));
-        return NULL;
+        return avret;
     }
 
     if ((avret = avcodec_open2 (*cctx, codec, NULL)) < 0) {
         loge ("%s: avcodec_open2 failed with error code %d: %s\n", FILENAME,
               avret, av_err2str (avret));
-        return NULL;
+        return avret;
     }
 
-    return codec;
+    return 0;
 }
 
 int
@@ -200,76 +199,106 @@ libav_cvt_wav (const char *fn_in, const char *fn_out)
     FILE *fp_in = fopen (fn_in, "rb");
 
     if (fn_in == NULL) {
-        loge ("%s: ERROR fopen `%s' for rb failed", FILENAME, fn_in);
-        return EXIT_FAILURE;
+        loge ("%s: ERROR fopen `%s' for rb failed: errno %d: %s", FILENAME,
+              fn_in, errno, strerror (errno));
+        return NCAP_EIO;
     }
 
     fclose (fp_in);
     logd ("%s: fopen `%s' test succeeded", FILENAME, fn_in);
 
-    int ret = EXIT_SUCCESS;
+    int ret = NCAP_OK;
+
+    logd ("%s: opening file `%s' for wb...", FILENAME, fn_out);
 
     FILE *fp_out = fopen (fn_out, "wb"); // 2: deinit_fp_out
 
-    if (fn_out == NULL) {
-        loge ("%s: ERROR: fopen `%s' failed for wb\n", FILENAME, fn_out);
-        return EXIT_FAILURE;
+    if (fp_out == NULL) {
+        loge ("%s: ERROR: fopen `%s' failed for wb: errno %d: %s", FILENAME,
+              fn_out, errno, strerror (errno));
+        return NCAP_EIO;
     }
 
     // init decoder
 
+    logd ("%s: initializing avformat context...", FILENAME);
+
     AVFormatContext *fctx = avformat_alloc_context (); // deinit_fctx
 
     if (fctx == NULL) {
-        fprintf (stderr, "ERROR: avformat_alloc_context failed\n");
-        ret = EXIT_FAILURE;
+        loge ("%s: ERROR: avformat_alloc_context failed\n", FILENAME);
+        ret = NCAP_EALLOC;
         goto deinit_fp_out;
     }
+
+    logd ("%s: initializing codec with init_codec...", FILENAME);
 
     const AVCodec *codec = init_codec (fn_in, &fctx);
 
     if (codec == NULL) {
-        fprintf (stderr, "ERROR: avcodec_find_decoder failed\n");
-        ret = EXIT_FAILURE;
+        loge ("%s: ERROR: avcodec_find_decoder failed\n", FILENAME);
+        ret = NCAP_EALLOC;
         goto deinit_fctx;
     }
+
+    logd ("%s: initializing allocating avcodec context...", FILENAME);
 
     AVCodecContext *cctx = avcodec_alloc_context3 (codec); // deinit_cctx
 
     if (cctx == NULL) {
-        fprintf (stderr, "ERROR: avcodec_alloc_context3 failed\n");
-        ret = EXIT_FAILURE;
+        loge ("%s: ERROR: avcodec_alloc_context3 failed\n", FILENAME);
+        ret = NCAP_EALLOC;
         goto deinit_fctx;
     }
 
-    init_codec_context (codec, fctx->streams[0], &cctx);
+    logd ("%s: initializing initializing codec context with "
+          "init_codec_context...",
+          FILENAME);
+
+    int avret = init_codec_context (codec, fctx->streams[0], &cctx);
+
+    if (avret < 0) {
+        loge ("%s: ERROR: init_codec_context failed\n", FILENAME);
+        ret = NCAP_EALLOC;
+        goto deinit_fctx;
+    }
+
+    logd ("%s: initializing initializing parser...", FILENAME);
 
     AVCodecParserContext *parser = av_parser_init (codec->id); // deinit_parser
 
     if (parser == NULL) {
-        fprintf (stderr, "ERROR: av_parser_init failed\n");
-        ret = EXIT_FAILURE;
+        loge ("%s: ERROR: av_parser_init failed\n", FILENAME);
+        ret = NCAP_EALLOC;
         goto deinit_cctx;
     }
+
+    logd ("%s: allocating frame...", FILENAME);
 
     AVFrame *frame = av_frame_alloc (); // deinit_frame
 
     if (frame == NULL) {
-        fprintf (stderr, "ERROR: av_frame_alloc failed\n");
-        ret = EXIT_FAILURE;
+        loge ("%s: ERROR: av_frame_alloc failed\n", FILENAME);
+        ret = NCAP_EALLOC;
         goto deinit_parser;
     }
+
+    logd ("%s: allocating packet...", FILENAME);
 
     AVPacket *pkt = av_packet_alloc (); // deinit_pkt
 
     if (pkt == NULL) {
-        fprintf (stderr, "av_packet_alloc failed\n");
-        ret = EXIT_FAILURE;
+        loge ("%s: ERROR: av_packet_alloc failed\n", FILENAME);
+        ret = NCAP_EALLOC;
         goto deinit_frame;
     }
 
+    logd ("%s: reserving bytes for WAV header...", FILENAME);
+
     // allocate space for WAV header
     fseek (fp_out, WAV_HEADER_SIZ, SEEK_SET);
+
+    logd ("%s: reading frames...", FILENAME);
 
     // decode until eof
 
@@ -295,6 +324,8 @@ libav_cvt_wav (const char *fn_in, const char *fn_out)
     pkt->data = NULL;
     pkt->size = 0;
     decode (cctx, pkt, frame, fp_out);
+
+    logd ("%s: generating header...", FILENAME);
 
     // construct and write WAV header
     struct wav_header_t header;

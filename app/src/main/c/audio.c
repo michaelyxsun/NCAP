@@ -44,7 +44,7 @@ audio_play (const char *fn)
     if (fp == NULL) {
         loge ("%s: Failed to open file `%s': error: %s", FILENAME, fn,
               strerror (errno));
-        return 1;
+        return NCAP_EIO;
     }
 
     logi ("%s: Opened file `%s'", FILENAME, fn);
@@ -101,7 +101,7 @@ audio_play (const char *fn)
 
     if (res != AAUDIO_OK) {
         loge ("%s: AAudio openStream failed", FILENAME);
-        return 1;
+        return NCAP_EGEN;
     }
 
     const int32_t frames_per_burst = AAudioStream_getFramesPerBurst (stream);
@@ -178,10 +178,10 @@ audio_play (const char *fn)
 
     if (res != AAUDIO_OK) {
         loge ("%s: AAudio failed to close", FILENAME);
-        return 1;
+        return NCAP_EGEN;
     }
 
     loge ("%s: AAudio stream closed.", FILENAME);
 
-    return 0;
+    return NCAP_OK;
 }

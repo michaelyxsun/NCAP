@@ -32,6 +32,14 @@ struct wav_header_t {
     } data;
 };
 
+#define NCAP_OK     0
+#define NCAP_EGEN   1
+#define NCAP_EALLOC 2
+#define NCAP_EIO    3
+#define NCAP_ENULL  4
+
+// TODO(M-Y-Sun): add err2str
+
 extern int libav_cvt_wav (const char *fn_in, const char *fn_out);
 
 extern int audio_play (const char *fn);
