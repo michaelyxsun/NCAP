@@ -196,21 +196,24 @@ init_codec_context (const AVCodec *const codec, const AVStream *const stream,
 int
 libav_cvt_wav (const char *fn_in, const char *fn_out)
 {
-    int ret = EXIT_SUCCESS;
+    logd ("%s: testing fopen `%s' for rb", FILENAME, fn_in);
+    FILE *fp_in = fopen (fn_in, "rb");
 
-    FILE *fp_in = fopen (fn_in, "rb"); // 1: deinit_fp_in
-
-    if (fp_in == NULL) {
-        loge ("%s: ERROR: fopen `%s' failed for rb\n", FILENAME, fn_in);
+    if (fn_in == NULL) {
+        loge ("%s: ERROR fopen `%s' for rb failed", FILENAME, fn_in);
         return EXIT_FAILURE;
     }
+
+    fclose (fp_in);
+    logd ("%s: fopen `%s' test succeeded", FILENAME, fn_in);
+
+    int ret = EXIT_SUCCESS;
 
     FILE *fp_out = fopen (fn_out, "wb"); // 2: deinit_fp_out
 
     if (fn_out == NULL) {
         loge ("%s: ERROR: fopen `%s' failed for wb\n", FILENAME, fn_out);
-        ret = EXIT_FAILURE;
-        goto deinit_fp_in;
+        return EXIT_FAILURE;
     }
 
     // init decoder
@@ -334,9 +337,6 @@ deinit_cctx:
 
 deinit_fp_out:
     fclose (fp_out);
-
-deinit_fp_in:
-    fclose (fp_in);
 
     return ret;
 }
