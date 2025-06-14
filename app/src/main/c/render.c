@@ -3,11 +3,16 @@
 #include <stdio.h>
 
 #include "logging.h"
+#include "pthread.h"
 #include "render.h"
 
 #define MAX_TOUCH_POINTS 4
 
 static const char *FILENAME = "render.c";
+
+bool            render_ready = false;
+pthread_mutex_t render_mx    = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  render_cv    = PTHREAD_COND_INITIALIZER;
 
 void
 render (void)
@@ -28,6 +33,14 @@ render (void)
     snprintf (str, sizeof str, "hello from raylib in %d x %d", SCW, SCH);
 
     logd ("%s: Window dimensions: %d x %d", FILENAME, SCW, SCH);
+
+    logi ("%s: %s: initialization finished, locking and signaling...",
+          FILENAME, __func__);
+
+    pthread_mutex_lock (&render_mx);
+    render_ready = true;
+    pthread_cond_signal (&render_cv); // NOTE: change to broadcast when needed
+    pthread_mutex_unlock (&render_mx);
 
     const int POSX = (SCW >> 1) - (MeasureText (str, FONTSIZ) >> 1);
     const int POSY = (SCH >> 1) - (FONTSIZ >> 1);

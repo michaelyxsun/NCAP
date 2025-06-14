@@ -1,6 +1,5 @@
 #include <jni.h>
 #include <pthread.h>
-#include <unistd.h>
 
 // #include <android_native_app_glue.h>
 
@@ -14,6 +13,15 @@ static const char *FILENAME = "main.c";
 static void *
 tfn_audio_play (void *errstat)
 {
+    pthread_mutex_lock (&render_mx);
+
+    while (render_ready == false)
+        pthread_cond_wait (&render_cv, &render_mx);
+
+    pthread_mutex_unlock (&render_mx);
+
+    logi ("%s: %s: audio_play thread recieved signal", FILENAME, __func__);
+
     const char *fn_in = "/sdcard/Download/audio.m4a";
     // const char *fn_out = "/sdcard/Download/audio.wav";
     const char *fn_out = intfile ("audio.wav");
@@ -42,17 +50,18 @@ main (void)
 // void
 // android_main (struct android_app *state)
 {
-
     pthread_t audio_tid;
     int       stat;
-    logi ("%s: Spawning audio_play thread...", FILENAME);
-    pthread_create (&audio_tid, NULL, tfn_audio_play, &stat);
 
-    logi ("%s: Initializing window...", FILENAME);
+    pthread_create (&audio_tid, NULL, tfn_audio_play, &stat);
+    logi ("%s: %s: spawned audio_play thread", FILENAME, __func__);
+
     render ();
 
-    logi ("%s: Joining thread...", FILENAME);
+    logi ("%s: joining threads...", FILENAME);
+
     pthread_join (audio_tid, NULL);
 
-    logi ("%s: tfn_audio_play returned a status code of %d", FILENAME, stat);
+    logd ("%s: %s: audio_play thread joined with a status code of %d...",
+          FILENAME, __func__, stat);
 }
