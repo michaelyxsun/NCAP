@@ -6,6 +6,7 @@
 
 #include "audio.h"
 #include "logging.h"
+#include "properties.h"
 #include "render.h"
 
 static const char *FILENAME = "main.c";
@@ -13,8 +14,9 @@ static const char *FILENAME = "main.c";
 static void *
 tfn_audio_play (void *errstat)
 {
-    const char *fn_in  = "/sdcard/Download/audio.m4a";
-    const char *fn_out = "/sdcard/Download/audio.wav";
+    const char *fn_in = "/sdcard/Download/audio.m4a";
+    // const char *fn_out = "/sdcard/Download/audio.wav";
+    const char *fn_out = intfile ("audio.wav");
 
     logi ("%s: converting `%s' to WAV file `%s'...", FILENAME, fn_in, fn_out);
 
@@ -46,12 +48,9 @@ main (void)
     logi ("%s: Spawning audio_play thread...", FILENAME);
     pthread_create (&audio_tid, NULL, tfn_audio_play, &stat);
 
-    logi ("%s: sleeping...", FILENAME);
-    sleep (5);
-    //
-    // logi ("%s: Initializing window...", FILENAME);
-    // render ();
-    //
+    logi ("%s: Initializing window...", FILENAME);
+    render ();
+
     logi ("%s: Joining thread...", FILENAME);
     pthread_join (audio_tid, NULL);
 

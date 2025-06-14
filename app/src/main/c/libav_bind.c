@@ -198,7 +198,7 @@ libav_cvt_wav (const char *fn_in, const char *fn_out)
     logd ("%s: testing fopen `%s' for rb", FILENAME, fn_in);
     FILE *fp_in = fopen (fn_in, "rb");
 
-    if (fn_in == NULL) {
+    if (fp_in == NULL) {
         loge ("%s: ERROR fopen `%s' for rb failed: errno %d: %s", FILENAME,
               fn_in, errno, strerror (errno));
         return NCAP_EIO;
