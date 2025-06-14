@@ -49,8 +49,5 @@ android {
 }
 
 dependencies {
-    implementation(libs.appcompat)
-    implementation(libs.material)
-    implementation(libs.constraintlayout)
-    implementation("androidx.startup:startup-runtime:1.0.0")
+    implementation(libs.startupruntime)
 }
