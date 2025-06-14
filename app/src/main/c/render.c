@@ -32,7 +32,7 @@ render (void)
     char str[32];
     snprintf (str, sizeof str, "hello from raylib in %d x %d", SCW, SCH);
 
-    logd ("%s: Window dimensions: %d x %d", FILENAME, SCW, SCH);
+    logd ("%s: %s: Window dimensions: %d x %d", FILENAME, __func__, SCW, SCH);
 
     logi ("%s: %s: initialization finished, locking and signaling...",
           FILENAME, __func__);
@@ -77,7 +77,7 @@ render (void)
         EndDrawing ();
     }
 
-    logi ("%s: Closing window...", FILENAME);
+    logi ("%s: %s: Closing window...", FILENAME, __func__);
     CloseWindow ();
 }
 

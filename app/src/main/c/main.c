@@ -26,19 +26,22 @@ tfn_audio_play (void *errstat)
     // const char *fn_out = "/sdcard/Download/audio.wav";
     const char *fn_out = intfile ("audio.wav");
 
-    logi ("%s: converting `%s' to WAV file `%s'...", FILENAME, fn_in, fn_out);
+    logi ("%s: %s: converting `%s' to WAV file `%s'...", FILENAME, __func__,
+          fn_in, fn_out);
 
     int *e = (int *)errstat;
 
     if ((*e = libav_cvt_wav (fn_in, fn_out)) != NCAP_OK) {
-        loge ("%s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME, *e);
+        loge ("%s: %s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME,
+              __func__, *e);
         pthread_exit (NULL);
     }
 
-    logi ("%s: playing audio...", FILENAME);
+    logi ("%s: %s: playing audio...", FILENAME, __func__);
 
     if ((*e = audio_play (fn_out)) != NCAP_OK) {
-        loge ("%s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME, *e);
+        loge ("%s: %s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME,
+              __func__, *e);
         pthread_exit (NULL);
     }
 
@@ -58,7 +61,7 @@ main (void)
 
     render ();
 
-    logi ("%s: joining threads...", FILENAME);
+    logi ("%s: %s: joining threads...", FILENAME, __func__);
 
     pthread_join (audio_tid, NULL);
 
