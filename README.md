@@ -7,3 +7,13 @@
     - `libavutil`
     - `libavformat`
     - `libavcodec`
+
+### Supported ABIs
+
+See the [supported ABIs](https://developer.android.com/ndk/guides/abis#sa) page on the Android NDK documentation.
+
+- `armeabi-v7a` (ARM)
+- `arm64-v8a` (AArch64)
+- `x86_64` (x86-64)
+
+TODO: support x86 (libav compile issues)

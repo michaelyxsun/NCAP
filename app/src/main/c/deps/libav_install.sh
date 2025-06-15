@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# move this into your FFmpeg directory
+
 TOOLCHAIN=/Users/msun/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64
 
 ###### arch options ######
