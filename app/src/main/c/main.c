@@ -1,7 +1,7 @@
 #include <jni.h>
 #include <pthread.h>
-
-// #include <android_native_app_glue.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "audio.h"
 #include "logging.h"
@@ -9,6 +9,8 @@
 #include "render.h"
 
 static const char *FILENAME = "main.c";
+
+static ANativeActivity *activity;
 
 static void *
 tfn_audio_play (void *errstat)
@@ -24,7 +26,13 @@ tfn_audio_play (void *errstat)
 
     const char *fn_in = "/sdcard/Download/audio.m4a";
     // const char *fn_out = "/sdcard/Download/audio.wav";
-    const char *fn_out = intfile ("audio.wav");
+    // const char *fn_out = intfile ("audio.wav");
+
+    const char  *intdata_path     = activity->internalDataPath;
+    const size_t intdata_path_len = strlen (intdata_path);
+    char        *fn_out = malloc (intdata_path_len + AUDIO_CACHE_FILE_LEN + 1);
+    memcpy (fn_out, intdata_path, intdata_path_len);
+    memcpy (fn_out + intdata_path_len, AUDIO_CACHE_FILE, AUDIO_CACHE_FILE_LEN);
 
     logi ("%s: %s: converting `%s' to WAV file `%s'...", FILENAME, __func__,
           fn_in, fn_out);
@@ -50,9 +58,9 @@ tfn_audio_play (void *errstat)
 
 int
 main (void)
-// void
-// android_main (struct android_app *state)
 {
+    activity = GetAndroidApp ()->activity;
+
     pthread_t audio_tid;
     int       stat;
 
