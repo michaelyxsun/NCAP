@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# move this into your ffmpeg directory
-
-CORES=8
 TOOLCHAIN=/Users/msun/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64
 
 ###### arch options ######
@@ -11,13 +8,13 @@ TOOLCHAIN=/Users/msun/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/preb
 # ARCH=arm
 # CC="$TOOLCHAIN/bin/armv7a-linux-androideabi26-clang"
 
-# ABI=arm64-v8a
-# ARCH=aarch64
-# CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
+ABI=arm64-v8a
+ARCH=aarch64
+CC="$TOOLCHAIN/bin/aarch64-linux-android26-clang"
 
-ABI=x86_64
-ARCH=x86_64
-CC="$TOOLCHAIN/bin/x86_64-linux-android26-clang"
+# ABI=x86_64
+# ARCH=x86_64
+# CC="$TOOLCHAIN/bin/x86_64-linux-android26-clang"
 
 ### this one doesnt work ###
 # ABI=x86
@@ -46,11 +43,19 @@ PREFIX="../libav/$ABI"
     --enable-shared \
     --disable-programs \
     --disable-doc \
+    --disable-avdevice \
+    --disable-swscale \
+    --disable-avfilter \
+    --disable-network \
     --disable-encoders \
+    --disable-muxers \
+    --disable-bsfs \
+    --disable-indevs \
+    --disable-outdevs \
+    --disable-filters \
     --enable-protocol=file \
-    --enable-pic \
     --prefix="$PREFIX" \
     --shlibdir="$PREFIX" \
     --logfile=configure.log &&
     make clean &&
-    make install -j "$CORES"
+    make install -j
