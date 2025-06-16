@@ -14,12 +14,12 @@ bool            render_ready = false;
 pthread_mutex_t render_mx    = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  render_cv    = PTHREAD_COND_INITIALIZER;
 
+static const int FPS = 30;
+
 void
 render (void)
 {
     InitWindow (0, 0, "com.msun.ncap");
-
-    const int FPS = 60;
     SetTargetFPS (FPS);
 
     logd ("%s: Set target FPS to %d", FILENAME, FPS);
@@ -47,11 +47,18 @@ render (void)
 
     static Vector2 tpos[MAX_TOUCH_POINTS];
 
-    while (!WindowShouldClose ()) {
-        if (IsKeyPressed (KEY_Q))
-            break;
+    for (int tcnt, pcnt = -1; !WindowShouldClose (); pcnt = tcnt) {
+        tcnt = GetTouchPointCount ();
 
-        int tcnt = GetTouchPointCount ();
+        if (tcnt == 0 && tcnt == pcnt) {
+            BeginDrawing ();
+            {
+                ClearBackground (WHITE);
+                DrawText (str, POSX, POSY, FONTSIZ, BLACK);
+            }
+            EndDrawing ();
+            continue;
+        }
 
         if (tcnt > MAX_TOUCH_POINTS)
             tcnt = MAX_TOUCH_POINTS;
