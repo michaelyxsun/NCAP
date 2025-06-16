@@ -29,8 +29,7 @@ set(PLATFORM
 
 add_subdirectory(deps/raylib)
 
-# link_directories(deps/libav)
-include_directories(deps/libav/include)
+include_directories(deps/libav/${ANDROID_ABI}/include)
 
 set(libav-libs swresample avutil avcodec avformat)
 foreach(lib IN LISTS libav-libs)
