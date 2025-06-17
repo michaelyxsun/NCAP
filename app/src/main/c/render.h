@@ -59,6 +59,7 @@ struct obj_t {
     void          *params;
     enum obj_typ_e typ;
     bool           dyn;
+    void (*act) (void);
 };
 
 extern bool            render_ready;

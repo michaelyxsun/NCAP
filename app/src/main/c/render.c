@@ -14,8 +14,18 @@ bool            render_ready = false;
 pthread_mutex_t render_mx    = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  render_cv    = PTHREAD_COND_INITIALIZER;
 
-static const int FPS     = 30;
-static const int FONTSIZ = 50;
+static const int FPS_ACTIVE = 30;
+static const int FPS_STATIC = 5;
+static const int FONTSIZ    = 20;
+static int       fps        = FPS_STATIC;
+
+static bool wclose = false;
+
+static void
+act_wclose (void)
+{
+    wclose = true;
+}
 
 /**
  * 0: close text background
@@ -55,7 +65,8 @@ init_objs (const int SCW, const int SCH)
     static struct rl_rect_arg_t objs0;
     rectarg = objs[0].params = &objs0;
     objs[0].typ              = RL_RECT;
-    objs[0].dyn              = false;
+    objs[0].dyn              = true;
+    objs[0].act              = act_wclose;
 
     rectarg->siz.x = w + 20;
     rectarg->siz.y = h + 20;
@@ -127,13 +138,40 @@ draw (const struct obj_t *const obj)
     }
 }
 
+static bool
+touches (Vector2 p, const struct obj_t *const obj)
+{
+    float   a, b, dx, dy;
+    Vector2 u, v;
+
+    switch (obj->typ) {
+        case RL_LINE:
+        case RL_TEXT:
+            return false;
+        case RL_CIRC:
+            u  = ((struct rl_circ_arg_t *)obj->params)->c;
+            a  = ((struct rl_circ_arg_t *)obj->params)->r;
+            dx = p.x - u.x;
+            dy = p.y - u.y;
+            return dx * dx + dy * dy <= a * a;
+        case RL_RECT:
+            u = ((struct rl_rect_arg_t *)obj->params)->pos;
+            v = ((struct rl_rect_arg_t *)obj->params)->siz;
+            a = p.x - u.x;
+            b = p.y - u.y;
+            return a >= 0 && b >= 0 && a <= v.x && b <= v.y;
+        case RL_TRI: // TODO(M-Y-Sun): implement
+            return false;
+    }
+}
+
 void
 render (void)
 {
     InitWindow (0, 0, "com.msun.ncap");
-    SetTargetFPS (FPS);
+    SetTargetFPS (fps);
 
-    logd ("%s: Set target FPS to %d", FILENAME, FPS);
+    logd ("%s: Set target FPS to %d", FILENAME, fps);
 
     const int SCW = GetScreenWidth ();
     const int SCH = GetScreenHeight ();
@@ -159,26 +197,44 @@ render (void)
         tcnt = GetTouchPointCount ();
 
         if (tcnt == 0 && tcnt == pcnt) {
+            if (fps != FPS_STATIC) {
+                SetTargetFPS (fps = FPS_STATIC);
+                logi ("%s: %s: set FPS to %d", FILENAME, __func__, fps);
+            }
+
             BeginDrawing ();
             {
                 ClearBackground (WHITE);
 
-                for (size_t i = 0; i < objs_len; ++i) {
-                    if (objs[i].dyn == true)
-                        continue;
-
+                for (size_t i = 0; i < objs_len; ++i)
                     draw (&objs[i]);
-                }
             }
             EndDrawing ();
             continue;
         }
 
+        if (fps != FPS_ACTIVE) {
+            SetTargetFPS (fps = FPS_ACTIVE);
+            logi ("%s: %s: set FPS to %d", FILENAME, __func__, fps);
+        }
+
         if (tcnt > MAX_TOUCH_POINTS)
             tcnt = MAX_TOUCH_POINTS;
 
-        for (int i = 0; i < tcnt; ++i)
+        for (int i = 0; i < tcnt; ++i) {
             tpos[i] = GetTouchPosition (i);
+
+            for (size_t i = 0; i < objs_len; ++i) {
+                if (objs[i].dyn == false)
+                    continue;
+
+                if (touches (tpos[i], &objs[i]))
+                    objs[i].act ();
+            }
+        }
+
+        if (wclose)
+            break;
 
         BeginDrawing ();
         {
