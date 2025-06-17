@@ -16,7 +16,7 @@ pthread_cond_t  render_cv    = PTHREAD_COND_INITIALIZER;
 
 static const int FPS_ACTIVE = 30;
 static const int FPS_STATIC = 5;
-static const int FONTSIZ    = 20;
+static const int FONTSIZ    = 40;
 static int       fps        = FPS_STATIC;
 
 static bool wclose = false;
@@ -24,6 +24,7 @@ static bool wclose = false;
 static void
 act_wclose (void)
 {
+    logi ("%s: %s: window close signaled", FILENAME, __func__);
     wclose = true;
 }
 
@@ -257,6 +258,7 @@ render (void)
 
     logi ("%s: %s: Closing window...", FILENAME, __func__);
     CloseWindow ();
+    wclose = false;
 }
 
 #undef MAX_TOUCH_POINTS

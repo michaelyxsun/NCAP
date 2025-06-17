@@ -30,9 +30,12 @@ tfn_audio_play (void *errstat)
 
     const char  *intdata_path     = activity->internalDataPath;
     const size_t intdata_path_len = strlen (intdata_path);
-    char        *fn_out = malloc (intdata_path_len + AUDIO_CACHE_FILE_LEN + 1);
+    const size_t malloc_siz = intdata_path_len + AUDIO_CACHE_FILE_LEN + 2;
+    char        *fn_out     = malloc (malloc_siz);
     memcpy (fn_out, intdata_path, intdata_path_len);
-    memcpy (fn_out + intdata_path_len, AUDIO_CACHE_FILE, AUDIO_CACHE_FILE_LEN);
+    memcpy (fn_out + intdata_path_len, "/" AUDIO_CACHE_FILE,
+            AUDIO_CACHE_FILE_LEN + 1);
+    *(fn_out + malloc_siz - 1) = '\0';
 
     logi ("%s: %s: converting `%s' to WAV file `%s'...", FILENAME, __func__,
           fn_in, fn_out);
@@ -42,7 +45,7 @@ tfn_audio_play (void *errstat)
     if ((*e = libav_cvt_wav (fn_in, fn_out)) != NCAP_OK) {
         loge ("%s: %s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME,
               __func__, *e);
-        pthread_exit (NULL);
+        goto exit;
     }
 
     logi ("%s: %s: playing audio...", FILENAME, __func__);
@@ -50,9 +53,11 @@ tfn_audio_play (void *errstat)
     if ((*e = audio_play (fn_out)) != NCAP_OK) {
         loge ("%s: %s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME,
               __func__, *e);
-        pthread_exit (NULL);
+        goto exit;
     }
 
+exit:
+    free (fn_out);
     pthread_exit (NULL);
 }
 
