@@ -4,10 +4,11 @@
 #define AUDIO_H
 
 #include <stdint.h>
-#include <stdio.h>
 
 #define WAV_HEADER_SIZ 44
 
+// TODO(M-Y-Sun): implement header for WAV extended audio format to support S32
+// and S32P PCM
 struct wav_header_t {
     struct {
         char     RIFF[4];

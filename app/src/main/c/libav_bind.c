@@ -67,6 +67,7 @@ gen_wav_header (struct wav_header_t *header, const AVCodecContext *const ctx,
     header->format.bloc_siz     = 16; // 16 is for PCM
     header->format.audio_format = (int)ctx->sample_fmt % 5; // 1 is S16; 6 is S16P
                                                             // 3 is float; 8 is float planar
+                                                            // 0xfffe or 65534 is extended
     const uint32_t channels     = header->format.channels    = ctx->ch_layout.nb_channels;
     const uint32_t sample_rate  = header->format.sample_rate = ctx->sample_rate;
     const uint32_t bytes_per_sample = av_get_bytes_per_sample (ctx->sample_fmt);
@@ -84,9 +85,9 @@ gen_wav_header (struct wav_header_t *header, const AVCodecContext *const ctx,
  * @return 0 on success
  */
 static int
-decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
+decode (AVCodecContext *ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
 {
-    int avret = avcodec_send_packet (dec_ctx, pkt);
+    int avret = avcodec_send_packet (ctx, pkt);
 
     if (avret < 0) {
         loge ("%s: %s: ERROR: avcodec_send_packet failed with code %d: %s\n",
@@ -96,7 +97,7 @@ decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
 
     // read all the output frames (in general there may be any number of them
     while (avret >= 0) {
-        avret = avcodec_receive_frame (dec_ctx, frame);
+        avret = avcodec_receive_frame (ctx, frame);
 
         if (avret == AVERROR (EAGAIN) || avret == AVERROR_EOF) {
             return 0;
@@ -106,12 +107,22 @@ decode (AVCodecContext *dec_ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
             return avret;
         }
 
-        int datasiz = av_get_bytes_per_sample (dec_ctx->sample_fmt);
+        const int datasiz  = av_get_bytes_per_sample (ctx->sample_fmt);
+        const int channels = ctx->ch_layout.nb_channels;
 
-        for (int f = 0; f < frame->nb_samples; f++) {
-            for (int ch = 0; ch < dec_ctx->ch_layout.nb_channels; ch++) {
-                fwrite (frame->data[ch] + datasiz * f, 1, datasiz, fp_out);
+        assert (frame->nb_samples * datasiz * channels == frame->linesize[0]);
+
+        if (av_sample_fmt_is_planar (ctx->sample_fmt)) {
+            for (int f = 0; f < frame->nb_samples; ++f) {
+                for (int ch = 0; ch < channels; ++ch)
+                    fwrite (frame->data[ch] + datasiz * f, datasiz, 1, fp_out);
+
+                for (int ch = 0; ch < frame->nb_extended_buf; ++ch)
+                    fwrite (frame->extended_data[ch] + datasiz * f, datasiz, 1,
+                            fp_out);
             }
+        } else {
+            fwrite (frame->data[0], 1, frame->linesize[0], fp_out);
         }
     }
 
