@@ -90,8 +90,8 @@ decode (AVCodecContext *ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
     int avret = avcodec_send_packet (ctx, pkt);
 
     if (avret < 0) {
-        loge ("%s: %s: ERROR: avcodec_send_packet failed with code %d: %s\n",
-              FILENAME, __func__, avret, av_err2str (avret));
+        logef ("ERROR: avcodec_send_packet failed with code %d: %s\n", avret,
+               av_err2str (avret));
         return avret;
     }
 
@@ -102,8 +102,8 @@ decode (AVCodecContext *ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
         if (avret == AVERROR (EAGAIN) || avret == AVERROR_EOF) {
             return 0;
         } else if (avret < 0) {
-            loge ("%s: %s: ERROR: Decode error with code %d: %s\n", FILENAME,
-                  __func__, avret, av_err2str (avret));
+            logef ("ERROR: Decode error with code %d: %s\n", avret,
+                   av_err2str (avret));
             return avret;
         }
 
@@ -135,53 +135,46 @@ init_codec (const char *fn, AVFormatContext **fctx)
     int avret;
 
     if ((avret = avformat_open_input (fctx, fn, NULL, NULL)) != 0) {
-        loge ("%s: %s: ERROR: avformat_open_input failed with error code %d: "
-              "%s\n",
-              FILENAME, __func__, avret, av_err2str (avret));
+        logef ("ERROR: avformat_open_input failed with error code %d: "
+               "%s\n",
+               avret, av_err2str (avret));
         return NULL;
     }
 
     if ((avret = avformat_find_stream_info (*fctx, NULL)) < 0) {
-        loge (
+        logef (
 
-            "%s: %s: ERROR: avformat_find_stream_info failed with error code "
+            "ERROR: avformat_find_stream_info failed with error code "
             "%d\n",
-            FILENAME, __func__, avret);
+            avret);
         return NULL;
     }
 
-    logd ("%s: %s: AVFormat format:\t%s\n", FILENAME, __func__,
-          (*fctx)->iformat->name);
-    logd ("%s: %s: AVFormat duration:\t%" PRId64 "\n", FILENAME, __func__,
-          (*fctx)->duration);
-    logd ("%s: %s: AVFormat bit rate:\t%" PRId64 "\n", FILENAME, __func__,
-          (*fctx)->bit_rate);
+    logdf ("AVFormat format:\t%s\n", (*fctx)->iformat->name);
+    logdf ("AVFormat duration:\t%" PRId64 "\n", (*fctx)->duration);
+    logdf ("AVFormat bit rate:\t%" PRId64 "\n", (*fctx)->bit_rate);
 
     if ((*fctx)->nb_streams != 1) {
-        loge ("%s: %s: expected 1 audio input stream, found %d\n", FILENAME,
-              __func__, (*fctx)->nb_streams);
+        logef ("expected 1 audio input stream, found %d\n",
+               (*fctx)->nb_streams);
         return NULL;
     }
 
     const AVCodecParameters *const params = (*fctx)->streams[0]->codecpar;
 
     if (params->codec_type != AVMEDIA_TYPE_AUDIO) {
-        loge ("%s: %s: not an input stream, found %d\n", FILENAME, __func__,
-              params->codec_type);
+        logef ("not an input stream, found %d\n", params->codec_type);
         return NULL;
     }
 
     const AVCodec *codec = avcodec_find_decoder (params->codec_id);
 
-    logd ("%s: %s: codec_id:\t%d\n", FILENAME, __func__, codec->id);
-    logd ("%s: %s: codec name:\t%s\n", FILENAME, __func__, codec->name);
-    logd ("%s: %s: codec long name:\t%s\n", FILENAME, __func__,
-          codec->long_name);
+    logdf ("codec_id:\t%d\n", codec->id);
+    logdf ("codec name:\t%s\n", codec->name);
+    logdf ("codec long name:\t%s\n", codec->long_name);
 
-    logd ("%s: %s: channels:\t%d\n", FILENAME, __func__,
-          params->ch_layout.nb_channels);
-    logd ("%s: %s: block align:\t%d\n", FILENAME, __func__,
-          params->block_align);
+    logdf ("channels:\t%d\n", params->ch_layout.nb_channels);
+    logdf ("block align:\t%d\n", params->block_align);
 
     return codec;
 }
@@ -194,15 +187,15 @@ init_codec_context (const AVCodec *const codec, const AVStream *const stream,
 
     if ((avret = avcodec_parameters_to_context (*cctx, stream->codecpar))
         < 0) {
-        loge ("%s: %s: ERROR: avcodec_parameters_to_context failed with error "
-              "code %d: %s\n",
-              FILENAME, __func__, avret, av_err2str (avret));
+        logef ("ERROR: avcodec_parameters_to_context failed with error "
+               "code %d: %s\n",
+               avret, av_err2str (avret));
         return avret;
     }
 
     if ((avret = avcodec_open2 (*cctx, codec, NULL)) < 0) {
-        loge ("%s: %s: avcodec_open2 failed with error code %d: %s\n",
-              FILENAME, __func__, avret, av_err2str (avret));
+        logef ("avcodec_open2 failed with error code %d: %s\n", avret,
+               av_err2str (avret));
         return avret;
     }
 
@@ -212,115 +205,109 @@ init_codec_context (const AVCodec *const codec, const AVStream *const stream,
 int
 libav_cvt_cwav (const char *fn_in, const char *fn_out)
 {
-    logd ("%s: %s: testing fopen `%s' for rb", FILENAME, __func__, fn_in);
+    logdf ("testing fopen `%s' for rb", fn_in);
     FILE *fp_in = fopen (fn_in, "rb");
 
     if (fp_in == NULL) {
-        loge ("%s: %s: ERROR fopen `%s' for rb failed: errno %d: %s", FILENAME,
-              __func__, fn_in, errno, strerror (errno));
+        logef ("ERROR fopen `%s' for rb failed: errno %d: %s", fn_in, errno,
+               strerror (errno));
         return NCAP_EIO;
     }
 
     fclose (fp_in);
-    logd ("%s: %s: fopen `%s' test succeeded", FILENAME, __func__, fn_in);
+    logdf ("fopen `%s' test succeeded", fn_in);
 
     int ret = NCAP_OK;
 
-    logd ("%s: %s: opening file `%s' for wb...", FILENAME, __func__, fn_out);
+    logdf ("opening file `%s' for wb...", fn_out);
 
     FILE *fp_out = fopen (fn_out, "wb"); // 2: deinit_fp_out
 
     if (fp_out == NULL) {
-        loge ("%s: %s: ERROR: fopen `%s' failed for wb: errno %d: %s",
-              FILENAME, __func__, fn_out, errno, strerror (errno));
+        logef ("ERROR: fopen `%s' failed for wb: errno %d: %s", fn_out, errno,
+               strerror (errno));
         return NCAP_EIO;
     }
 
     // init decoder
 
-    logd ("%s: %s: initializing avformat context...", FILENAME, __func__);
+    logd ("initializing avformat context...");
 
     AVFormatContext *fctx = avformat_alloc_context (); // deinit_fctx
 
     if (fctx == NULL) {
-        loge ("%s: %s: ERROR: avformat_alloc_context failed\n", FILENAME,
-              __func__);
+        loge ("ERROR: avformat_alloc_context failed\n");
         ret = NCAP_EALLOC;
         goto deinit_fp_out;
     }
 
-    logd ("%s: %s: initializing codec with init_codec...", FILENAME, __func__);
+    logd ("initializing codec with init_codec...");
 
     const AVCodec *codec = init_codec (fn_in, &fctx);
 
     if (codec == NULL) {
-        loge ("%s: %s: ERROR: avcodec_find_decoder failed\n", FILENAME,
-              __func__);
+        loge ("ERROR: avcodec_find_decoder failed\n");
         ret = NCAP_EALLOC;
         goto deinit_fctx;
     }
 
-    logd ("%s: %s: initializing allocating avcodec context...", FILENAME,
-          __func__);
+    logd ("initializing allocating avcodec context...");
 
     AVCodecContext *cctx = avcodec_alloc_context3 (codec); // deinit_cctx
 
     if (cctx == NULL) {
-        loge ("%s: %s: ERROR: avcodec_alloc_context3 failed\n", FILENAME,
-              __func__);
+        loge ("ERROR: avcodec_alloc_context3 failed\n");
         ret = NCAP_EALLOC;
         goto deinit_fctx;
     }
 
-    logd ("%s: %s: initializing initializing codec context with "
-          "init_codec_context...",
-          FILENAME, __func__);
+    logd ("initializing initializing codec context with "
+          "init_codec_context...");
 
     int avret = init_codec_context (codec, fctx->streams[0], &cctx);
 
     if (avret < 0) {
-        loge ("%s: %s: ERROR: init_codec_context failed\n", FILENAME,
-              __func__);
+        loge ("ERROR: init_codec_context failed\n");
         ret = NCAP_EALLOC;
         goto deinit_fctx;
     }
 
-    logd ("%s: %s: initializing initializing parser...", FILENAME, __func__);
+    logd ("initializing initializing parser...");
 
     AVCodecParserContext *parser = av_parser_init (codec->id); // deinit_parser
 
     if (parser == NULL) {
-        loge ("%s: %s: ERROR: av_parser_init failed\n", FILENAME, __func__);
+        loge ("ERROR: av_parser_init failed\n");
         ret = NCAP_EALLOC;
         goto deinit_cctx;
     }
 
-    logd ("%s: %s: allocating frame...", FILENAME, __func__);
+    logd ("allocating frame...");
 
     AVFrame *frame = av_frame_alloc (); // deinit_frame
 
     if (frame == NULL) {
-        loge ("%s: %s: ERROR: av_frame_alloc failed\n", FILENAME, __func__);
+        loge ("ERROR: av_frame_alloc failed\n");
         ret = NCAP_EALLOC;
         goto deinit_parser;
     }
 
-    logd ("%s: %s: allocating packet...", FILENAME, __func__);
+    logd ("allocating packet...");
 
     AVPacket *pkt = av_packet_alloc (); // deinit_pkt
 
     if (pkt == NULL) {
-        loge ("%s: %s: ERROR: av_packet_alloc failed\n", FILENAME, __func__);
+        loge ("ERROR: av_packet_alloc failed\n");
         ret = NCAP_EALLOC;
         goto deinit_frame;
     }
 
-    logd ("%s: %s: reserving bytes for WAV header...", FILENAME, __func__);
+    logd ("reserving bytes for WAV header...");
 
     // allocate space for WAV header
     fseek (fp_out, CWAV_HEADER_SIZ, SEEK_SET);
 
-    logd ("%s: %s: reading frames...", FILENAME, __func__);
+    logd ("reading frames...");
 
     // decode until eof
 
@@ -329,9 +316,8 @@ libav_cvt_cwav (const char *fn_in, const char *fn_out)
     while (av_read_frame (fctx, pkt) >= 0) {
         if (fctx->streams[pkt->stream_index]->codecpar->codec_type
             != AVMEDIA_TYPE_AUDIO) {
-            loge ("%s: %s: ERROR: packet read was not from audio stream. "
-                  "stopping...\n",
-                  FILENAME, __func__);
+            loge ("ERROR: packet read was not from audio stream. "
+                  "stopping...\n");
             break;
         }
 
@@ -347,7 +333,7 @@ libav_cvt_cwav (const char *fn_in, const char *fn_out)
     pkt->size = 0;
     decode (cctx, pkt, frame, fp_out);
 
-    logd ("%s: %s: generating header...", FILENAME, __func__);
+    logd ("generating header...");
 
     // construct and write WAV header
     struct cwav_header_t header;
@@ -357,19 +343,19 @@ libav_cvt_cwav (const char *fn_in, const char *fn_out)
 
 #ifndef NDEBUG
     // clang-format off
-    logv ("%s: %s: WAV header RIFF:\t%.4s",          FILENAME, __func__, header.riff.ckID);
-    logv ("%s: %s: WAV header file size:\t%u",       FILENAME, __func__, header.riff.cksize);
-    logv ("%s: %s: WAV header WAVE:\t%.4s",          FILENAME, __func__, header.riff.WAVEID);
-    logv ("%s: %s: WAV header fmt :\t%.4s",          FILENAME, __func__, header.fmt.ckID);
-    logv ("%s: %s: WAV header block size:\t%u",      FILENAME, __func__, header.fmt.cksize);
-    logv ("%s: %s: WAV header audio fmt:\t%u",       FILENAME, __func__, header.fmt.wFormatTag);
-    logv ("%s: %s: WAV header channels:\t%u",        FILENAME, __func__, header.fmt.nChannels);
-    logv ("%s: %s: WAV header sample rate:\t%u",     FILENAME, __func__, header.fmt.nSamplesPerSec);
-    logv ("%s: %s: WAV header byte rate:\t%u",       FILENAME, __func__, header.fmt.nAvgBytesPerSec);
-    logv ("%s: %s: WAV header block alignment:\t%u", FILENAME, __func__, header.fmt.nBlockAlign);
-    logv ("%s: %s: WAV header bits per sample:\t%u", FILENAME, __func__, header.fmt.wBitsPerSample);
-    logv ("%s: %s: WAV header data:\t%.4s",          FILENAME, __func__, header.data.ckID);
-    logv ("%s: %s: WAV header data size:\t%u",       FILENAME, __func__, header.data.cksize);
+    logvf ("WAV header RIFF:\t%.4s",          header.riff.ckID);
+    logvf ("WAV header file size:\t%u",       header.riff.cksize);
+    logvf ("WAV header WAVE:\t%.4s",          header.riff.WAVEID);
+    logvf ("WAV header fmt :\t%.4s",          header.fmt.ckID);
+    logvf ("WAV header block size:\t%u",      header.fmt.cksize);
+    logvf ("WAV header audio fmt:\t%u",       header.fmt.wFormatTag);
+    logvf ("WAV header channels:\t%u",        header.fmt.nChannels);
+    logvf ("WAV header sample rate:\t%u",     header.fmt.nSamplesPerSec);
+    logvf ("WAV header byte rate:\t%u",       header.fmt.nAvgBytesPerSec);
+    logvf ("WAV header block alignment:\t%u", header.fmt.nBlockAlign);
+    logvf ("WAV header bits per sample:\t%u", header.fmt.wBitsPerSample);
+    logvf ("WAV header data:\t%.4s",          header.data.ckID);
+    logvf ("WAV header data size:\t%u",       header.data.cksize);
 // clang-format on
 #endif // !NDEBUG
 

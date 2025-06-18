@@ -24,7 +24,7 @@ static bool wclose = false;
 static void
 act_wclose (void)
 {
-    logi ("%s: %s: window close signaled", FILENAME, __func__);
+    logi ("window close signaled");
     wclose = true;
 }
 
@@ -172,7 +172,7 @@ render (void)
     InitWindow (0, 0, "com.msun.ncap");
     SetTargetFPS (fps);
 
-    logd ("%s: Set target FPS to %d", FILENAME, fps);
+    logdf ("Set target FPS to %d", fps);
 
     const int SCW = GetScreenWidth ();
     const int SCH = GetScreenHeight ();
@@ -180,10 +180,9 @@ render (void)
     char str[64];
     snprintf (str, sizeof str, "hello from raylib in %d x %d", SCW, SCH);
 
-    logd ("%s: %s: Window dimensions: %d x %d", FILENAME, __func__, SCW, SCH);
+    logdf ("Window dimensions: %d x %d", SCW, SCH);
 
-    logi ("%s: %s: initialization finished, locking and signaling...",
-          FILENAME, __func__);
+    logi ("initialization finished, locking and signaling...");
 
     pthread_mutex_lock (&render_mx);
     render_ready = true;
@@ -200,7 +199,7 @@ render (void)
         if (tcnt == 0 && tcnt == pcnt) {
             if (fps != FPS_STATIC) {
                 SetTargetFPS (fps = FPS_STATIC);
-                logi ("%s: %s: set FPS to %d", FILENAME, __func__, fps);
+                logif ("set FPS to %d", fps);
             }
 
             BeginDrawing ();
@@ -216,7 +215,7 @@ render (void)
 
         if (fps != FPS_ACTIVE) {
             SetTargetFPS (fps = FPS_ACTIVE);
-            logi ("%s: %s: set FPS to %d", FILENAME, __func__, fps);
+            logif ("set FPS to %d", fps);
         }
 
         if (tcnt > MAX_TOUCH_POINTS)
@@ -256,7 +255,7 @@ render (void)
         EndDrawing ();
     }
 
-    logi ("%s: %s: Closing window...", FILENAME, __func__);
+    logi ("Closing window...");
     CloseWindow ();
     wclose = false;
 }

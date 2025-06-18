@@ -12,7 +12,7 @@
 #include "audio.h"
 #include "logging.h"
 
-static const char *FILENAME = "audio.c";
+static const char *FILENAME = "aaudio_bind.c";
 
 static int
 init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
@@ -48,31 +48,30 @@ audio_play (const char *fn)
     FILE *fp = fopen (fn, "rb");
 
     if (fp == NULL) {
-        loge ("%s: %s: Failed to open file `%s': error: %s", FILENAME,
-              __func__, fn, strerror (errno));
+        logef ("Failed to open file `%s': error: %s", fn, strerror (errno));
         return NCAP_EIO;
     }
 
-    logi ("%s: %s: Opened file `%s'", FILENAME, __func__, fn);
+    logif ("Opened file `%s'", fn);
 
     struct cwav_header_t header;
     fread (&header, CWAV_HEADER_SIZ, 1, fp);
 
 #ifndef NDEBUG
     // clang-format off
-    logv ("%s: %s: WAV header RIFF:\t%.4s",          FILENAME, __func__, header.riff.ckID);
-    logv ("%s: %s: WAV header file size:\t%u",       FILENAME, __func__, header.riff.cksize);
-    logv ("%s: %s: WAV header WAVE:\t%.4s",          FILENAME, __func__, header.riff.WAVEID);
-    logv ("%s: %s: WAV header fmt :\t%.4s",          FILENAME, __func__, header.fmt.ckID);
-    logv ("%s: %s: WAV header block size:\t%u",      FILENAME, __func__, header.fmt.cksize);
-    logv ("%s: %s: WAV header audio fmt:\t%u",       FILENAME, __func__, header.fmt.wFormatTag);
-    logv ("%s: %s: WAV header channels:\t%u",        FILENAME, __func__, header.fmt.nChannels);
-    logv ("%s: %s: WAV header sample rate:\t%u",     FILENAME, __func__, header.fmt.nSamplesPerSec);
-    logv ("%s: %s: WAV header byte rate:\t%u",       FILENAME, __func__, header.fmt.nAvgBytesPerSec);
-    logv ("%s: %s: WAV header block alignment:\t%u", FILENAME, __func__, header.fmt.nBlockAlign);
-    logv ("%s: %s: WAV header bits per sample:\t%u", FILENAME, __func__, header.fmt.wBitsPerSample);
-    logv ("%s: %s: WAV header data:\t%.4s",          FILENAME, __func__, header.data.ckID);
-    logv ("%s: %s: WAV header data size:\t%u",       FILENAME, __func__, header.data.cksize);
+    logvf ("WAV header RIFF:\t%.4s",          header.riff.ckID);
+    logvf ("WAV header file size:\t%u",       header.riff.cksize);
+    logvf ("WAV header WAVE:\t%.4s",          header.riff.WAVEID);
+    logvf ("WAV header fmt :\t%.4s",          header.fmt.ckID);
+    logvf ("WAV header block size:\t%u",      header.fmt.cksize);
+    logvf ("WAV header audio fmt:\t%u",       header.fmt.wFormatTag);
+    logvf ("WAV header channels:\t%u",        header.fmt.nChannels);
+    logvf ("WAV header sample rate:\t%u",     header.fmt.nSamplesPerSec);
+    logvf ("WAV header byte rate:\t%u",       header.fmt.nAvgBytesPerSec);
+    logvf ("WAV header block alignment:\t%u", header.fmt.nBlockAlign);
+    logvf ("WAV header bits per sample:\t%u", header.fmt.wBitsPerSample);
+    logvf ("WAV header data:\t%.4s",          header.data.ckID);
+    logvf ("WAV header data size:\t%u",       header.data.cksize);
 // clang-format on
 #endif // !NDEBUG
 
@@ -92,19 +91,15 @@ audio_play (const char *fn)
                                    &PCM_DATA_WIDTH);
 
     if (stat < 0) {
-        loge ("%s: %s: ERROR: init_aaudio_fmt failed with code %d\n", FILENAME,
-              __func__, stat);
+        logef ("ERROR: init_aaudio_fmt failed with code %d\n", stat);
         return NCAP_EGEN;
     }
 
-    logi ("%s: %s: Using AAudio format with code %d", FILENAME, __func__,
-          AAUDIO_FMT);
-    logi ("%s: %s: Using PCM data width of %zu", FILENAME, __func__,
-          PCM_DATA_WIDTH);
+    logif ("Using AAudio format with code %d", AAUDIO_FMT);
+    logif ("Using PCM data width of %zu", PCM_DATA_WIDTH);
 
     if (AAUDIO_FMT == AAUDIO_FORMAT_UNSPECIFIED)
-        logw ("%s: %s: WARN: using AAUDIO_FORMAT_UNSPECIFIED", FILENAME,
-              __func__);
+        logw ("WARN: using AAUDIO_FORMAT_UNSPECIFIED");
 
     AAudioStreamBuilder_setFormat (builder, AAUDIO_FMT);
     AAudioStreamBuilder_setChannelCount (builder, channels);
@@ -119,7 +114,7 @@ audio_play (const char *fn)
     AAudioStreamBuilder_delete (builder);
 
     if (res != AAUDIO_OK) {
-        loge ("%s: %s: AAudio openStream failed", FILENAME, __func__);
+        loge ("AAudio openStream failed");
         return NCAP_EGEN;
     }
 
@@ -129,14 +124,14 @@ audio_play (const char *fn)
 
 #ifndef NDEBUG
     // clang-format off
-    logv ("%s: %s: device id: %d",        FILENAME, __func__, AAudioStream_getDeviceId (stream));
-    logv ("%s: %s: direction: %d",        FILENAME, __func__, AAudioStream_getDirection (stream));
-    logv ("%s: %s: sharing mode: %d",     FILENAME, __func__, AAudioStream_getSharingMode (stream));
-    logv ("%s: %s: stream channels: %d",  FILENAME, __func__, channels);
-    logv ("%s: %s: frames_per_burst: %d", FILENAME, __func__, frames_per_burst);
-    logv ("%s: %s: sample_rate: %d",      FILENAME, __func__, sample_rate);
-    logv ("%s: %s: buf_cap: %d",          FILENAME, __func__, buf_cap);
-    logv ("%s: %s: buf_siz: %d",          FILENAME, __func__, buf_siz);
+    logvf ("device id: %d",        AAudioStream_getDeviceId (stream));
+    logvf ("direction: %d",        AAudioStream_getDirection (stream));
+    logvf ("sharing mode: %d",     AAudioStream_getSharingMode (stream));
+    logvf ("stream channels: %d",  channels);
+    logvf ("frames_per_burst: %d", frames_per_burst);
+    logvf ("sample_rate: %d",      sample_rate);
+    logvf ("buf_cap: %d",          buf_cap);
+    logvf ("buf_siz: %d",          buf_siz);
     // clang-format on
 #endif // !NDEBUG
 
@@ -152,7 +147,7 @@ audio_play (const char *fn)
     const time_t timer_start = time (NULL);
     const time_t dur         = 5;
 
-    logi ("%s: %s: Stream started. Playing audio...", FILENAME, __func__);
+    logi ("Stream started. Playing audio...");
 
     while (time (NULL) - timer_start < dur && res >= AAUDIO_OK) {
         fread (buf, PCM_DATA_WIDTH, buflen, fp);
@@ -161,7 +156,7 @@ audio_play (const char *fn)
         if (buf_siz < buf_cap) {
             int32_t ur_cnt = AAudioStream_getXRunCount (stream);
 
-            logd ("%s: %s: Underruns: %d", FILENAME, __func__, ur_cnt);
+            logdf ("Underruns: %d", ur_cnt);
 
             if (ur_cnt > prev_ur_cnt) {
                 prev_ur_cnt = ur_cnt;
@@ -172,16 +167,15 @@ audio_play (const char *fn)
     }
 
     if (res < AAUDIO_OK)
-        loge ("%s: %s: Write loop stopped due to AAudio error with code %d.",
-              FILENAME, __func__, res);
+        logef ("Write loop stopped due to AAudio error with code %d.", res);
 
     // deinit
 
     free (buf);
     fclose (fp);
 
-    logi ("%s: %s: Audio play ended after %u secs. Stopping stream...",
-          FILENAME, __func__, (uint32_t)dur);
+    logif ("Audio play ended after %u secs. Stopping stream...",
+           (uint32_t)dur);
 
     AAudioStream_requestStop (stream);
     state = AAUDIO_STREAM_STATE_UNINITIALIZED;
@@ -189,19 +183,18 @@ audio_play (const char *fn)
         stream, AAUDIO_STREAM_STATE_STOPPING, &state, nstimeout);
 
     if (res != AAUDIO_OK)
-        loge ("%s: %s: AAudio failed to stop. Closing anyway...", FILENAME,
-              __func__);
+        loge ("AAudio failed to stop. Closing anyway...");
     else
-        logi ("%s: %s: AAudio stream stopped.", FILENAME, __func__);
+        logi ("AAudio stream stopped.");
 
     res = AAudioStream_close (stream);
 
     if (res != AAUDIO_OK) {
-        loge ("%s: %s: AAudio failed to close", FILENAME, __func__);
+        loge ("AAudio failed to close");
         return NCAP_EGEN;
     }
 
-    loge ("%s: %s: AAudio stream closed.", FILENAME, __func__);
+    loge ("AAudio stream closed.");
 
     return NCAP_OK;
 }
