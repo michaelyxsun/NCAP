@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")" || exit
 
-# usage: ./run.sh <device id> <abi>-<releasemode>
+# usage: ./run.sh <device id> <abi>
 #
 # allowed abis are as follows:
 # - universal

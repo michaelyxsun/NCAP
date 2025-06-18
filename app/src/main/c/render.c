@@ -6,8 +6,6 @@
 #include "pthread.h"
 #include "render.h"
 
-#define MAX_TOUCH_POINTS 4
-
 static const char *FILENAME = "render.c";
 
 bool            render_ready = false;
@@ -191,12 +189,15 @@ render (void)
 
     init_objs (SCW, SCH);
 
-    static Vector2 tpos[MAX_TOUCH_POINTS];
+    Vector2 tpos;
+    Vector2 ptpos = { 0, 0 };
+    int     touched;
+    int     ptouched = 0;
 
-    for (int tcnt, pcnt = -1; !WindowShouldClose (); pcnt = tcnt) {
-        tcnt = GetTouchPointCount ();
+    for (; !WindowShouldClose (); ptouched = touched, ptpos = tpos) {
+        touched = GetTouchPointCount ();
 
-        if (tcnt == 0 && tcnt == pcnt) {
+        if (!touched && !ptouched) {
             if (fps != FPS_STATIC) {
                 SetTargetFPS (fps = FPS_STATIC);
                 logif ("set FPS to %d", fps);
@@ -218,17 +219,18 @@ render (void)
             logif ("set FPS to %d", fps);
         }
 
-        if (tcnt > MAX_TOUCH_POINTS)
-            tcnt = MAX_TOUCH_POINTS;
-
-        for (int i = 0; i < tcnt; ++i) {
-            tpos[i] = GetTouchPosition (i);
+        // check touch on touch release
+        if (touched) {
+            tpos = GetTouchPosition (0);
+        } else {
+            tpos.x = -1;
+            tpos.y = -1;
 
             for (size_t i = 0; i < objs_len; ++i) {
                 if (objs[i].dyn == false)
                     continue;
 
-                if (touches (tpos[i], &objs[i]))
+                if (touches (ptpos, &objs[i]))
                     objs[i].act ();
             }
         }
@@ -240,13 +242,12 @@ render (void)
         {
             ClearBackground (WHITE);
 
-            for (int i = 0; i < tcnt; ++i) {
-                if (tpos[i].x == 0 || tpos[i].y == 0)
+            if (touched) {
+                if (tpos.x == 0 || tpos.y == 0)
                     continue;
 
-                DrawCircleV (tpos[i], 30, ORANGE);
-                DrawText (TextFormat ("%d", i), tpos[i].x - 10, tpos[i].y - 70,
-                          FONTSIZ, BLACK);
+                DrawCircleV (tpos, 30, ORANGE);
+                DrawText ("0", tpos.x - 10, tpos.y - 70, FONTSIZ, BLACK);
             }
 
             for (size_t i = 0; i < objs_len; ++i)
@@ -259,5 +260,3 @@ render (void)
     CloseWindow ();
     wclose = false;
 }
-
-#undef MAX_TOUCH_POINTS

@@ -149,8 +149,10 @@ audio_play (const char *fn)
 
     logi ("Stream started. Playing audio...");
 
-    while (time (NULL) - timer_start < dur && res >= AAUDIO_OK) {
-        fread (buf, PCM_DATA_WIDTH, buflen, fp);
+    while (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur) {
+        if (fread (buf, PCM_DATA_WIDTH, buflen, fp) <= 0)
+            logw ("WARN: fread returned with code <= 0");
+
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {
