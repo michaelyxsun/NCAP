@@ -53,32 +53,32 @@ static const char *FILENAME = "libav_bind.c";
  * call after initialization of ctx
  */
 static void
-gen_wav_header (struct wav_header_t *header, const AVCodecContext *const ctx,
+gen_wav_header (struct cwav_header_t *header, const AVCodecContext *const ctx,
                 uint32_t datasiz, uint32_t samples)
 {
     // RIFF chunk
-    strncpy (header->riff.RIFF, "RIFF", sizeof header->riff.RIFF);
-    strncpy (header->riff.WAVE, "WAVE", sizeof header->riff.WAVE);
-    header->riff.file_siz = datasiz + WAV_HEADER_SIZ - 8;
+    strncpy (header->riff.ckID, "RIFF", 4);
+    strncpy (header->riff.WAVEID, "WAVE", 4);
+    header->riff.cksize = datasiz + CWAV_HEADER_SIZ - 8;
 
-    // data format chunk
+    // data fmt chunk
     // clang-format off
-    strncpy (header->format.FMT_, "fmt\0", sizeof header->format.FMT_);
-    header->format.bloc_siz     = 16; // 16 is for PCM
-    header->format.audio_format = (int)ctx->sample_fmt % 5; // 1 is S16; 6 is S16P
-                                                            // 3 is float; 8 is float planar
-                                                            // 0xfffe or 65534 is extended
-    const uint32_t channels     = header->format.channels    = ctx->ch_layout.nb_channels;
-    const uint32_t sample_rate  = header->format.sample_rate = ctx->sample_rate;
+    strncpy (header->fmt.ckID, "fmt\0", 4);
+    header->fmt.cksize     = 16; // 16 is for PCM
+    header->fmt.wFormatTag = (int)ctx->sample_fmt % 5; // 1 is S16; 6 is S16P
+                                                       // 3 is float; 8 is float planar
+                                                       // 0xfffe or 65534 is extended
+    const uint32_t channels         = header->fmt.nChannels = ctx->ch_layout.nb_channels;
+    const uint32_t sample_rate      = header->fmt.nSamplesPerSec = ctx->sample_rate;
     const uint32_t bytes_per_sample = av_get_bytes_per_sample (ctx->sample_fmt);
-    header->format.bits_per_sample  = bytes_per_sample << 3;
-    header->format.byte_rate        = sample_rate * channels * bytes_per_sample;
-    header->format.bloc_align       = channels * bytes_per_sample;
+    header->fmt.wBitsPerSample  = bytes_per_sample << 3;
+    header->fmt.nAvgBytesPerSec = sample_rate * channels * bytes_per_sample;
+    header->fmt.nBlockAlign     = channels * bytes_per_sample;
     // clang-format on
 
     // sampled data chunk
-    strncpy (header->data.DATA, "data", sizeof header->data.DATA);
-    header->data.data_siz = samples * channels * bytes_per_sample;
+    strncpy (header->data.ckID, "data", sizeof header->data.ckID);
+    header->data.cksize = samples * channels * bytes_per_sample;
 }
 
 /**
@@ -210,7 +210,7 @@ init_codec_context (const AVCodec *const codec, const AVStream *const stream,
 }
 
 int
-libav_cvt_wav (const char *fn_in, const char *fn_out)
+libav_cvt_cwav (const char *fn_in, const char *fn_out)
 {
     logd ("%s: %s: testing fopen `%s' for rb", FILENAME, __func__, fn_in);
     FILE *fp_in = fopen (fn_in, "rb");
@@ -318,7 +318,7 @@ libav_cvt_wav (const char *fn_in, const char *fn_out)
     logd ("%s: %s: reserving bytes for WAV header...", FILENAME, __func__);
 
     // allocate space for WAV header
-    fseek (fp_out, WAV_HEADER_SIZ, SEEK_SET);
+    fseek (fp_out, CWAV_HEADER_SIZ, SEEK_SET);
 
     logd ("%s: %s: reading frames...", FILENAME, __func__);
 
@@ -350,26 +350,26 @@ libav_cvt_wav (const char *fn_in, const char *fn_out)
     logd ("%s: %s: generating header...", FILENAME, __func__);
 
     // construct and write WAV header
-    struct wav_header_t header;
+    struct cwav_header_t header;
     gen_wav_header (&header, cctx, ftell (fp_out), samples);
     fseek (fp_out, 0, SEEK_SET);
-    fwrite (&header, WAV_HEADER_SIZ, 1, fp_out);
+    fwrite (&header, CWAV_HEADER_SIZ, 1, fp_out);
 
 #ifndef NDEBUG
     // clang-format off
-    logv ("%s: %s: WAV header RIFF:\t%.4s",          FILENAME, __func__, header.riff.RIFF);
-    logv ("%s: %s: WAV header file size:\t%u",       FILENAME, __func__, header.riff.file_siz);
-    logv ("%s: %s: WAV header WAVE:\t%.4s",          FILENAME, __func__, header.riff.WAVE);
-    logv ("%s: %s: WAV header fmt :\t%.4s",          FILENAME, __func__, header.format.FMT_);
-    logv ("%s: %s: WAV header block size:\t%u",      FILENAME, __func__, header.format.bloc_siz);
-    logv ("%s: %s: WAV header audio format:\t%u",    FILENAME, __func__, header.format.audio_format);
-    logv ("%s: %s: WAV header channels:\t%u",        FILENAME, __func__, header.format.channels);
-    logv ("%s: %s: WAV header sample rate:\t%u",     FILENAME, __func__, header.format.sample_rate);
-    logv ("%s: %s: WAV header byte rate:\t%u",       FILENAME, __func__, header.format.byte_rate);
-    logv ("%s: %s: WAV header block alignment:\t%u", FILENAME, __func__, header.format.bloc_align);
-    logv ("%s: %s: WAV header bits per sample:\t%u", FILENAME, __func__, header.format.bits_per_sample);
-    logv ("%s: %s: WAV header data:\t%.4s",          FILENAME, __func__, header.data.DATA);
-    logv ("%s: %s: WAV header data size:\t%u",       FILENAME, __func__, header.data.data_siz);
+    logv ("%s: %s: WAV header RIFF:\t%.4s",          FILENAME, __func__, header.riff.ckID);
+    logv ("%s: %s: WAV header file size:\t%u",       FILENAME, __func__, header.riff.cksize);
+    logv ("%s: %s: WAV header WAVE:\t%.4s",          FILENAME, __func__, header.riff.WAVEID);
+    logv ("%s: %s: WAV header fmt :\t%.4s",          FILENAME, __func__, header.fmt.ckID);
+    logv ("%s: %s: WAV header block size:\t%u",      FILENAME, __func__, header.fmt.cksize);
+    logv ("%s: %s: WAV header audio fmt:\t%u",       FILENAME, __func__, header.fmt.wFormatTag);
+    logv ("%s: %s: WAV header channels:\t%u",        FILENAME, __func__, header.fmt.nChannels);
+    logv ("%s: %s: WAV header sample rate:\t%u",     FILENAME, __func__, header.fmt.nSamplesPerSec);
+    logv ("%s: %s: WAV header byte rate:\t%u",       FILENAME, __func__, header.fmt.nAvgBytesPerSec);
+    logv ("%s: %s: WAV header block alignment:\t%u", FILENAME, __func__, header.fmt.nBlockAlign);
+    logv ("%s: %s: WAV header bits per sample:\t%u", FILENAME, __func__, header.fmt.wBitsPerSample);
+    logv ("%s: %s: WAV header data:\t%.4s",          FILENAME, __func__, header.data.ckID);
+    logv ("%s: %s: WAV header data size:\t%u",       FILENAME, __func__, header.data.cksize);
 // clang-format on
 #endif // !NDEBUG
 

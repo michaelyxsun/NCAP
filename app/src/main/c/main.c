@@ -25,8 +25,6 @@ tfn_audio_play (void *errstat)
     logi ("%s: %s: audio_play thread recieved signal", FILENAME, __func__);
 
     const char *fn_in = "/sdcard/Download/audio.m4a";
-    // const char *fn_out = "/sdcard/Download/audio.wav";
-    // const char *fn_out = intfile ("audio.wav");
 
     const char  *intdata_path     = activity->internalDataPath;
     const size_t intdata_path_len = strlen (intdata_path);
@@ -42,7 +40,7 @@ tfn_audio_play (void *errstat)
 
     int *e = (int *)errstat;
 
-    if ((*e = libav_cvt_wav (fn_in, fn_out)) != NCAP_OK) {
+    if ((*e = libav_cvt_cwav (fn_in, fn_out)) != NCAP_OK) {
         loge ("%s: %s: ERROR: libav_cvt_wav failed with code %d\n", FILENAME,
               __func__, *e);
         goto exit;

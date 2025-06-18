@@ -5,31 +5,44 @@
 
 #include <stdint.h>
 
-#define WAV_HEADER_SIZ 44
+#define CWAV_HEADER_SIZ 44
 
-// TODO(M-Y-Sun): implement header for WAV extended audio format to support S32
-// and S32P PCM
-struct wav_header_t {
+struct cwav_header_t {
     struct {
-        char     RIFF[4];
-        uint32_t file_siz;
-        char     WAVE[4];
+        char     ckID[4];
+        uint32_t cksize;
+        char     WAVEID[4];
     } riff;
 
     struct {
-        char     FMT_[4];
-        uint32_t bloc_siz;
-        uint16_t audio_format;
-        uint16_t channels;
-        uint32_t sample_rate;
-        uint32_t byte_rate;
-        uint16_t bloc_align;
-        uint16_t bits_per_sample;
-    } format;
+        char     ckID[4];
+        uint32_t cksize;
+
+        /**
+         * 0 is U8, 5 is U8P
+         *
+         * 1 is S16, 6 is S16P (main)
+         *
+         * 2 is S32, 7 is S32P (NOT WAV STANDARD)
+         *
+         * 3 is FLT, 8 is FLTP (main)
+         *
+         * 4 is DBL, 9 is DBLP (NOT SUPPORTED BY AAUDIO)
+         *
+         * 10 is S64, 11 is S64P (NOT SUPPORTED BY AAUDIO; detects as U8 AND
+         * S16 with mod 5)
+         */
+        uint16_t wFormatTag;
+        uint16_t nChannels;
+        uint32_t nSamplesPerSec;
+        uint32_t nAvgBytesPerSec;
+        uint16_t nBlockAlign;
+        uint16_t wBitsPerSample;
+    } fmt;
 
     struct {
-        char     DATA[4];
-        uint32_t data_siz;
+        char     ckID[4];
+        uint32_t cksize;
     } data;
 };
 
@@ -41,7 +54,7 @@ struct wav_header_t {
 
 // TODO(M-Y-Sun): add err2str
 
-extern int libav_cvt_wav (const char *fn_in, const char *fn_out);
+extern int libav_cvt_cwav (const char *fn_in, const char *fn_out);
 
 extern int audio_play (const char *fn);
 
