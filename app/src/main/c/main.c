@@ -1,16 +1,36 @@
 #include <jni.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "audio.h"
+#include "config.h"
 #include "logging.h"
 #include "properties.h"
 #include "render.h"
 
 static const char *FILENAME = "main.c";
 
+#ifndef MAX_PATH_LEN
+#define MAX_PATH_LEN 128
+#endif
+
 static ANativeActivity *activity;
+
+static void
+path_concat (char *const dst, const char *const restrict prefix,
+             const char *const restrict file)
+{
+    const size_t pfxlen     = strlen (prefix);
+    const size_t flen       = strlen (file);
+    const size_t malloc_siz = pfxlen + flen + 2;
+
+    memcpy (dst, prefix, pfxlen);
+    dst[pfxlen] = '/';
+    memcpy (dst + pfxlen + 1, file, flen + 1);
+    dst[malloc_siz - 1] = '\0';
+}
 
 static void *
 tfn_audio_play (void *errstat)
@@ -26,14 +46,19 @@ tfn_audio_play (void *errstat)
 
     const char *fn_in = "/sdcard/Download/audio.m4a";
 
-    const char  *intdata_path     = activity->internalDataPath;
-    const size_t intdata_path_len = strlen (intdata_path);
-    const size_t malloc_siz = intdata_path_len + AUDIO_CACHE_FILE_LEN + 2;
-    char        *fn_out     = malloc (malloc_siz);
-    memcpy (fn_out, intdata_path, intdata_path_len);
-    memcpy (fn_out + intdata_path_len, "/" AUDIO_CACHE_FILE,
-            AUDIO_CACHE_FILE_LEN + 1);
-    *(fn_out + malloc_siz - 1) = '\0';
+    // const char  *intdata_path     = activity->internalDataPath;
+    // const size_t intdata_path_len = strlen (intdata_path);
+    // const size_t malloc_siz = intdata_path_len + NCAP_AUDIO_CACHE_FILE_LEN +
+    // 2; char        *fn_out     = malloc (malloc_siz); memcpy (fn_out,
+    // intdata_path, intdata_path_len); memcpy (fn_out + intdata_path_len, "/"
+    // NCAP_AUDIO_CACHE_FILE,
+    //         NCAP_AUDIO_CACHE_FILE_LEN + 1);
+    // *(fn_out + malloc_siz - 1) = '\0';
+
+    const char  *datapath = activity->internalDataPath;
+    const size_t len      = strlen (datapath);
+    static char  fn_out[MAX_PATH_LEN];
+    path_concat (fn_out, datapath, NCAP_AUDIO_CACHE_FILE);
 
     logif ("converting `%s' to WAV file `%s'...", fn_in, fn_out);
 
@@ -52,7 +77,7 @@ tfn_audio_play (void *errstat)
     }
 
 exit:
-    free (fn_out);
+    // free (fn_out);
     pthread_exit (NULL);
 }
 
@@ -60,6 +85,11 @@ int
 main (void)
 {
     activity = GetAndroidApp ()->activity;
+
+    static char cfgfile[MAX_PATH_LEN];
+    path_concat (cfgfile, activity->internalDataPath, NCAP_CONFIG_FILE);
+    logdf ("initializing config file `%s'", cfgfile);
+    config_init (cfgfile);
 
     pthread_t audio_tid;
     int       stat;
@@ -70,8 +100,10 @@ main (void)
     render ();
 
     logi ("joining threads...");
-
     pthread_join (audio_tid, NULL);
-
     logdf ("audio_play thread joined with a status code of %d...", stat);
+
+    logi ("deinit config...");
+    config_deinit ();
+    logi ("main finished");
 }
