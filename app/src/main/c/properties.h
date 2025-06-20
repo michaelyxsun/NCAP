@@ -10,4 +10,8 @@
 
 #define NCAP_CONFIG_FILE "ncaprc"
 
+#include "config.h"
+
+extern struct config_t ncap_config;
+
 #endif // !PROPERTIES_H

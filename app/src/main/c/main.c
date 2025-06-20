@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -89,7 +90,24 @@ main (void)
     static char cfgfile[MAX_PATH_LEN];
     path_concat (cfgfile, activity->internalDataPath, NCAP_CONFIG_FILE);
     logdf ("initializing config file `%s'", cfgfile);
-    config_init (cfgfile);
+    switch (config_init (cfgfile)) {
+        case CONFIG_INIT_CREAT:
+            ncap_config.aaudio_optimize = 2; // power saving
+            ncap_config.cur_track       = 0;
+            ncap_config.isrepeat        = false;
+            ncap_config.isshuffle       = false;
+            ncap_config.volume          = 100;
+            config_write (ncap_config);
+            break;
+        case CONFIG_INIT_EXISTS:
+            config_read (ncap_config);
+            break;
+        case CONFIG_ERR:
+        default:
+            loge ("ERROR: config init failed");
+    }
+
+    config_logdump ();
 
     pthread_t audio_tid;
     int       stat;

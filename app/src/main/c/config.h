@@ -22,8 +22,6 @@ extern struct config_t {
     uint8_t  aaudio_optimize;
     uint8_t  volume; // 0 to 100
     uint32_t cur_track;
-    uint32_t storage_dir_len;
-    char    *storage_dir;
 } ncap_config;
 
 extern FILE *ncap_config_fp;
@@ -40,13 +38,18 @@ extern int config_init (const char *fn);
 extern int config_deinit (void);
 
 /** synced with config_mx */
-#define set_config(config, fp)
+#define config_write(config)
 
 /** synced with config_mx */
-#define upd_config(field, fp)
+#define config_upd(val, field)
 
 /** synced with config_mx */
-#define read_config(field, fp)
+#define config_read_val(val, field)
+
+/** synced with config_mx */
+#define config_read(config)
+
+extern void config_logdump (void);
 
 /**
  * @return type aaudio_performance_mode_t cast to int
