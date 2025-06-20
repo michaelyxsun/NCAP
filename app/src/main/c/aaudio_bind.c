@@ -10,6 +10,7 @@
 #include <aaudio/AAudio.h>
 
 #include "audio.h"
+#include "config.h"
 #include "logging.h"
 
 static const char *FILENAME = "aaudio_bind.c";
@@ -25,7 +26,7 @@ init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
             return NCAP_EGEN;
         case 1:                           // S16
             *fmt = AAUDIO_FORMAT_PCM_I16; // 1
-            assert (*siz == 2);
+            *siz = 2;
             return NCAP_OK;
         case 2:                           // S32
             *fmt = AAUDIO_FORMAT_PCM_I32; // 4
@@ -39,6 +40,29 @@ init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
             *fmt = AAUDIO_FORMAT_UNSPECIFIED; // 0
             *siz = 2;
             return NCAP_EGEN;
+    }
+}
+
+static void
+sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len)
+{
+    const float scl = ncap_config.volume / 100.0f;
+
+    for (; len--; buf += width) {
+        switch (fmt) {
+            case AAUDIO_FORMAT_PCM_I16:
+                *(int16_t *)buf *= scl;
+                break;
+            case AAUDIO_FORMAT_PCM_I32:
+                *(int32_t *)buf *= scl;
+                break;
+            case AAUDIO_FORMAT_PCM_FLOAT:
+                *(float *)buf *= scl;
+                break;
+            case AAUDIO_FORMAT_INVALID:
+            default:
+                return;
+        }
     }
 }
 
@@ -105,7 +129,7 @@ audio_play (const char *fn)
     AAudioStreamBuilder_setChannelCount (builder, channels);
     AAudioStreamBuilder_setSampleRate (builder, sample_rate);
     AAudioStreamBuilder_setPerformanceMode (
-        builder, AAUDIO_PERFORMANCE_MODE_POWER_SAVING);
+        builder, to_aaudio_pm (ncap_config.aaudio_optimize));
 
     // stream
 
@@ -153,6 +177,7 @@ audio_play (const char *fn)
         if (fread (buf, PCM_DATA_WIDTH, buflen, fp) <= 0)
             logw ("WARN: fread returned with code <= 0");
 
+        sclbuf (buf, AAUDIO_FMT, PCM_DATA_WIDTH, buflen);
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {

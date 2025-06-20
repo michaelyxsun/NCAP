@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <aaudio/AAudio.h>
 
@@ -23,16 +24,25 @@ config_init (const char *fn)
 
     int ret;
 
-    if ((ncap_config_fp = fopen (fn, "wb+")) == NULL) {
-        logef ("ERROR: could not open config file `%s' for wb+: %s", fn,
-               strerror (errno));
-        ret = CONFIG_ERR;
-        goto exit;
-    }
+    if (access (fn, F_OK) == 0) {
+        if ((ncap_config_fp = fopen (fn, "rb+")) == NULL) {
+            logef ("ERROR: could not open config file `%s' for rb+: %s", fn,
+                   strerror (errno));
+            ret = CONFIG_ERR;
+            goto exit;
+        }
 
-    ret = ungetc (fgetc (ncap_config_fp), ncap_config_fp) == EOF
-              ? CONFIG_INIT_CREAT
-              : CONFIG_INIT_EXISTS;
+        ret = CONFIG_INIT_EXISTS;
+    } else {
+        if ((ncap_config_fp = fopen (fn, "wb+")) == NULL) {
+            logef ("ERROR: could not open config file `%s' for wb+: %s", fn,
+                   strerror (errno));
+            ret = CONFIG_ERR;
+            goto exit;
+        }
+
+        ret = CONFIG_INIT_CREAT;
+    }
 
 exit:
     pthread_mutex_unlock (&config_mx);

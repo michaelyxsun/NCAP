@@ -92,6 +92,7 @@ main (void)
     logdf ("initializing config file `%s'", cfgfile);
     switch (config_init (cfgfile)) {
         case CONFIG_INIT_CREAT:
+            logi ("creating config...");
             ncap_config.aaudio_optimize = 2; // power saving
             ncap_config.cur_track       = 0;
             ncap_config.isrepeat        = false;
@@ -100,6 +101,7 @@ main (void)
             config_write (ncap_config);
             break;
         case CONFIG_INIT_EXISTS:
+            logi ("config exists. reading config...");
             config_read (ncap_config);
             break;
         case CONFIG_ERR:
