@@ -45,19 +45,6 @@ foreach(lib IN LISTS libav-libs)
                ${CMAKE_SOURCE_DIR}/deps/libav/${ANDROID_ABI}/lib${lib}.so)
 endforeach()
 
-# c-dsa (vec for queue)
-
-include_directories(deps/c-dsa/lib/${ANDROID_ABI}/include/c)
-set(cdsa-libs vec)
-foreach(lib IN LISTS cdsa-libs)
-  add_library(${lib} STATIC IMPORTED)
-  set_target_properties(
-    ${lib}
-    PROPERTIES IMPORTED_LOCATION
-               ${CMAKE_SOURCE_DIR}/deps/c-dsa/lib/${ANDROID_ABI}/lib/lib${lib}.a
-  )
-endforeach()
-
 # build native_app_glue as a static lib
 
 include_directories(${CMAKE_PROJECT_NAME}
@@ -89,5 +76,4 @@ target_link_libraries(
   raylib
   aaudio
   ${libav-libs}
-  ${cdsa-libs}
   log)

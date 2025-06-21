@@ -5,7 +5,3 @@
 [submodule "libav"]
 	path = app/src/main/c/deps/libav
     url = https://github.com/M-Y-Sun/NCAP-libav-dependency.git
-
-[submodule "c-dsa"]
-    path = app/src/main/c/deps/c-dsa
-    url = https://github.com/M-Y-Sun/c-dsa.git

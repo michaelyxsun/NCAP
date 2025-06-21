@@ -7,7 +7,6 @@
     - `libavutil`
     - `libavformat`
     - `libavcodec`
-- [c-dsa](https://github.com/M-Y-Sun/c-dsa) `>=0.1.0`
 
 ### Supported ABIs
 

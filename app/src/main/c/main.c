@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <jni.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -33,6 +34,26 @@ path_concat (char *const dst, const char *const restrict prefix,
     dst[malloc_siz - 1] = '\0';
 }
 
+static int
+load_dir (const char *path)
+{
+    struct dirent *dir;
+    DIR           *dp = opendir (path);
+
+    if (dp == NULL) {
+        logef ("opendir failed for path `%s': %s", path, strerror (errno));
+        return -1;
+    }
+
+    while ((dir = readdir (dp)) != NULL) {
+        if (dir->d_type != DT_REG) {
+            logvf ("skipping file `%s': not a DT_REG file", dir->d_name);
+        }
+
+        // push into queue
+    }
+}
+
 static void *
 tfn_audio_play (void *errstat)
 {
@@ -46,20 +67,8 @@ tfn_audio_play (void *errstat)
     logi ("audio_play thread recieved signal");
 
     const char *fn_in = "/sdcard/Download/audio.m4a";
-
-    // const char  *intdata_path     = activity->internalDataPath;
-    // const size_t intdata_path_len = strlen (intdata_path);
-    // const size_t malloc_siz = intdata_path_len + NCAP_AUDIO_CACHE_FILE_LEN +
-    // 2; char        *fn_out     = malloc (malloc_siz); memcpy (fn_out,
-    // intdata_path, intdata_path_len); memcpy (fn_out + intdata_path_len, "/"
-    // NCAP_AUDIO_CACHE_FILE,
-    //         NCAP_AUDIO_CACHE_FILE_LEN + 1);
-    // *(fn_out + malloc_siz - 1) = '\0';
-
-    const char  *datapath = activity->internalDataPath;
-    const size_t len      = strlen (datapath);
-    static char  fn_out[MAX_PATH_LEN];
-    path_concat (fn_out, datapath, NCAP_AUDIO_CACHE_FILE);
+    static char fn_out[MAX_PATH_LEN];
+    path_concat (fn_out, activity->internalDataPath, NCAP_AUDIO_CACHE_FILE);
 
     logif ("converting `%s' to WAV file `%s'...", fn_in, fn_out);
 
