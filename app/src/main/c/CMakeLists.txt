@@ -13,6 +13,10 @@ cmake_minimum_required(VERSION 3.25.0)
 # within the top level build script scope).
 project("native-activity" C)
 
+# dependencies ######
+
+# raylib
+
 set(BUILD_EXAMPLES
     OFF
     CACHE BOOL "" FORCE) # don't build the supplied examples
@@ -29,8 +33,9 @@ set(PLATFORM
 
 add_subdirectory(deps/raylib)
 
-include_directories(deps/libav/${ANDROID_ABI}/include)
+# libav
 
+include_directories(deps/libav/${ANDROID_ABI}/include)
 set(libav-libs swresample avutil avcodec avformat)
 foreach(lib IN LISTS libav-libs)
   add_library(${lib} SHARED IMPORTED)
@@ -38,6 +43,19 @@ foreach(lib IN LISTS libav-libs)
     ${lib}
     PROPERTIES IMPORTED_LOCATION
                ${CMAKE_SOURCE_DIR}/deps/libav/${ANDROID_ABI}/lib${lib}.so)
+endforeach()
+
+# c-dsa (vec for queue)
+
+include_directories(deps/c-dsa/lib/${ANDROID_ABI}/include/c)
+set(cdsa-libs vec)
+foreach(lib IN LISTS cdsa-libs)
+  add_library(${lib} STATIC IMPORTED)
+  set_target_properties(
+    ${lib}
+    PROPERTIES IMPORTED_LOCATION
+               ${CMAKE_SOURCE_DIR}/deps/c-dsa/lib/${ANDROID_ABI}/lib/lib${lib}.a
+  )
 endforeach()
 
 # build native_app_glue as a static lib
@@ -71,4 +89,5 @@ target_link_libraries(
   raylib
   aaudio
   ${libav-libs}
+  ${cdsa-libs}
   log)
