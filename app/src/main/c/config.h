@@ -3,6 +3,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <assert.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -38,16 +39,28 @@ extern int config_init (const char *fn);
 extern int config_deinit (void);
 
 /** synced with config_mx */
-#define config_write(config)
+extern void config_read (void);
 
 /** synced with config_mx */
-#define config_upd(val, field)
+extern void config_write (void);
 
 /** synced with config_mx */
-#define config_read_val(val, field)
+#define config_upd(val, field)                                                \
+    do {                                                                      \
+        pthread_mutex_lock (&config_mx);                                      \
+        fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
+        fwrite (&(val), sizeof (val), 1, ncap_config_fp);                     \
+        pthread_mutex_unlock (&config_mx);                                    \
+    } while (0);
 
 /** synced with config_mx */
-#define config_read(config)
+#define config_read_val(val, field)                                           \
+    do {                                                                      \
+        pthread_mutex_lock (&config_mx);                                      \
+        fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
+        fread (&(val), sizeof (val), 1, ncap_config_fp);                      \
+        pthread_mutex_unlock (&config_mx);                                    \
+    } while (0);
 
 extern void config_logdump (void);
 

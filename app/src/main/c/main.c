@@ -107,11 +107,12 @@ main (void)
             ncap_config.isrepeat        = false;
             ncap_config.isshuffle       = false;
             ncap_config.volume          = 100;
-            config_write (ncap_config);
+            logi ("writing to config...");
+            config_write ();
             break;
         case CONFIG_INIT_EXISTS:
             logi ("config exists. reading config...");
-            config_read (ncap_config);
+            config_read ();
             break;
         case CONFIG_ERR:
         default:

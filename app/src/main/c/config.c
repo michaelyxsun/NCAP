@@ -68,55 +68,21 @@ exit:
     return ret;
 }
 
-#ifdef config_write
-#undef config_write
-#else
-#error macro function config_write not defined in  header file
-#endif
-#define config_write(config)                                                  \
-    do {                                                                      \
-        pthread_mutex_lock (&config_mx);                                      \
-        fwrite (&(config), sizeof (struct config_t), 1, ncap_config_fp);      \
-        pthread_mutex_unlock (&config_mx);                                    \
-    } while (0);
+void
+config_read (void)
+{
+    pthread_mutex_lock (&config_mx);
+    fread (&ncap_config, sizeof (struct config_t), 1, ncap_config_fp);
+    pthread_mutex_unlock (&config_mx);
+}
 
-#ifdef config_upd
-#undef config_upd
-#else
-#error macro function config_upd not defined in  header file
-#endif
-#define config_upd(val, field)                                                \
-    do {                                                                      \
-        pthread_mutex_lock (&config_mx);                                      \
-        fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
-        fwrite (&(val), sizeof (val), 1, ncap_config_fp);                     \
-        pthread_mutex_unlock (&config_mx);                                    \
-    } while (0);
-
-#ifdef config_read_val
-#undef config_read_val
-#else
-#error macro function config_read_val not defined in  header file
-#endif
-#define config_read_val(val, field)                                           \
-    do {                                                                      \
-        pthread_mutex_lock (&config_mx);                                      \
-        fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
-        fread (&(val), sizeof (val), 1, ncap_config_fp);                      \
-        pthread_mutex_unlock (&config_mx);                                    \
-    } while (0);
-
-#ifdef config_read
-#undef config_read
-#else
-#error macro function config_read_val not defined in  header file
-#endif
-#define config_read(config)                                                   \
-    do {                                                                      \
-        pthread_mutex_lock (&config_mx);                                      \
-        fread (&(config), sizeof (struct config_t), 1, ncap_config_fp);       \
-        pthread_mutex_unlock (&config_mx);                                    \
-    } while (0);
+void
+config_write (void)
+{
+    pthread_mutex_lock (&config_mx);
+    fwrite (&ncap_config, sizeof (struct config_t), 1, ncap_config_fp);
+    pthread_mutex_unlock (&config_mx);
+}
 
 void
 config_logdump ()
