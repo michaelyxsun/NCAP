@@ -117,7 +117,7 @@ main (void)
     static char cfgfile[MAX_PATH_LEN];
     path_concat (cfgfile, activity->internalDataPath, NCAP_CONFIG_FILE);
     logdf ("initializing config file `%s'", cfgfile);
-    remove (cfgfile);
+    // remove (cfgfile);
     switch (config_init (cfgfile)) {
         case CONFIG_INIT_CREAT:
             logi ("creating config...");
@@ -126,7 +126,7 @@ main (void)
             ncap_config.isrepeat        = 0; // false
             ncap_config.isshuffle       = 0; // false
             ncap_config.volume          = 100;
-            ncap_config.track_path      = "/sdcard/Download";
+            ncap_config.track_path      = "/sdcard/Music/NCAP-share";
             ncap_config.track_path_len  = strlen (ncap_config.track_path) + 1;
             logi ("writing to config...");
             config_write ();
