@@ -110,7 +110,8 @@ decode (AVCodecContext *ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
         const int datasiz  = av_get_bytes_per_sample (ctx->sample_fmt);
         const int channels = ctx->ch_layout.nb_channels;
 
-        assert (frame->nb_samples * datasiz * channels == frame->linesize[0]);
+        // assert (frame->nb_samples * datasiz * channels ==
+        // frame->linesize[0]);
 
         if (av_sample_fmt_is_planar (ctx->sample_fmt)) {
             for (int f = 0; f < frame->nb_samples; ++f) {

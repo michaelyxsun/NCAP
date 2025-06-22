@@ -23,6 +23,8 @@ extern struct config_t {
     uint8_t  aaudio_optimize;
     uint8_t  volume; // 0 to 100
     uint32_t cur_track;
+    uint32_t track_path_len;
+    char    *track_path; // path to media
 } ncap_config;
 
 extern FILE *ncap_config_fp;

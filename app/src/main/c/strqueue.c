@@ -25,20 +25,16 @@ strqueue_init (strqueue_t *this)
     this->cap = 1;
     this->siz = 0;
     this->ptr = malloc (sizeof (char *));
-
-    puts ("malloced this->ptr");
-
     return this->ptr == NULL ? STRQUEUE_ENULL : STRQUEUE_OK;
 }
 
 void
 strqueue_deinit (strqueue_t *this)
 {
-    while (this->siz--)
-        free (*this->ptr--);
+    while (this->siz)
+        free (this->ptr[--this->siz]);
 
-    free (this->ptr + 1);
-    puts ("freed this->ptr");
+    free (this->ptr);
 }
 
 int
@@ -47,12 +43,12 @@ strqueue_push (strqueue_t *this, const char *restrict str, size_t len)
     if (this->siz == this->cap)
         expand (this);
 
-    char *p = this->ptr[this->siz++] = malloc (len);
+    char *p = this->ptr[this->siz++] = malloc (len + 1);
 
     if (p == NULL)
         return STRQUEUE_ENULL;
 
-    memcpy (p, str, len);
+    memcpy (p, str, len + 1);
     return STRQUEUE_OK;
 }
 

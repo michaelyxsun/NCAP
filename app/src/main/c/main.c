@@ -11,6 +11,7 @@
 #include "logging.h"
 #include "properties.h"
 #include "render.h"
+#include "strqueue.h"
 
 static const char *FILENAME = "main.c";
 
@@ -21,8 +22,7 @@ static const char *FILENAME = "main.c";
 static ANativeActivity *activity;
 
 static void
-path_concat (char *const dst, const char *const restrict prefix,
-             const char *const restrict file)
+path_concat (char *dst, const char *restrict prefix, const char *restrict file)
 {
     const size_t pfxlen     = strlen (prefix);
     const size_t flen       = strlen (file);
@@ -35,7 +35,7 @@ path_concat (char *const dst, const char *const restrict prefix,
 }
 
 static int
-load_dir (const char *path)
+load_dir (strqueue_t *sq, const char *path)
 {
     struct dirent *dir;
     DIR           *dp = opendir (path);
@@ -48,14 +48,24 @@ load_dir (const char *path)
     while ((dir = readdir (dp)) != NULL) {
         if (dir->d_type != DT_REG) {
             logvf ("skipping file `%s': not a DT_REG file", dir->d_name);
+            continue;
         }
 
-        // push into queue
+        strqueue_push (sq, dir->d_name, strlen (dir->d_name));
+        logvf ("pushed file `%s'", dir->d_name);
     }
+
+    return 0;
 }
 
+struct audio_play_args_t {
+    const char *const prefix;
+    strqueue_t *const sq;
+    int               errstat;
+};
+
 static void *
-tfn_audio_play (void *errstat)
+tfn_audio_play (void *args_vp)
 {
     pthread_mutex_lock (&render_mx);
 
@@ -64,26 +74,34 @@ tfn_audio_play (void *errstat)
 
     pthread_mutex_unlock (&render_mx);
 
-    logi ("audio_play thread recieved signal");
+    logi ("render_ready = true; audio_play thread proceeding");
 
-    const char *fn_in = "/sdcard/Download/audio.m4a";
-    static char fn_out[MAX_PATH_LEN];
-    path_concat (fn_out, activity->internalDataPath, NCAP_AUDIO_CACHE_FILE);
+    struct audio_play_args_t *args = args_vp;
 
-    logif ("converting `%s' to WAV file `%s'...", fn_in, fn_out);
+    for (; args->sq->siz; strqueue_pop (args->sq)) {
+        logvf ("preparing to play `%s'", strqueue_front (args->sq));
 
-    int *e = (int *)errstat;
+        // const char *fn_in = "/sdcard/Download/audio.m4a";
+        static char fn_in[MAX_PATH_LEN], fn_out[MAX_PATH_LEN];
+        path_concat (fn_in, args->prefix, strqueue_front (args->sq));
+        path_concat (fn_out, activity->internalDataPath,
+                     NCAP_AUDIO_CACHE_FILE);
 
-    if ((*e = libav_cvt_cwav (fn_in, fn_out)) != NCAP_OK) {
-        logef ("ERROR: libav_cvt_wav failed with code %d\n", *e);
-        goto exit;
-    }
+        logif ("converting `%s' to WAV file `%s'...", fn_in, fn_out);
 
-    logi ("playing audio...");
+        if ((args->errstat = libav_cvt_cwav (fn_in, fn_out)) != NCAP_OK) {
+            logef ("ERROR: libav_cvt_wav failed with code %d. aborting...\n",
+                   args->errstat);
+            goto exit;
+        }
 
-    if ((*e = audio_play (fn_out)) != NCAP_OK) {
-        logef ("ERROR: libav_cvt_wav failed with code %d\n", *e);
-        goto exit;
+        logi ("playing audio...");
+
+        if ((args->errstat = audio_play (fn_out)) != NCAP_OK) {
+            logef ("ERROR: libav_cvt_wav failed with code %d. aborting...\n",
+                   args->errstat);
+            goto exit;
+        }
     }
 
 exit:
@@ -99,6 +117,7 @@ main (void)
     static char cfgfile[MAX_PATH_LEN];
     path_concat (cfgfile, activity->internalDataPath, NCAP_CONFIG_FILE);
     logdf ("initializing config file `%s'", cfgfile);
+    remove (cfgfile);
     switch (config_init (cfgfile)) {
         case CONFIG_INIT_CREAT:
             logi ("creating config...");
@@ -107,6 +126,8 @@ main (void)
             ncap_config.isrepeat        = false;
             ncap_config.isshuffle       = false;
             ncap_config.volume          = 100;
+            ncap_config.track_path      = "/sdcard/Download";
+            ncap_config.track_path_len  = strlen (ncap_config.track_path) + 1;
             logi ("writing to config...");
             config_write ();
             break;
@@ -121,17 +142,29 @@ main (void)
 
     config_logdump ();
 
-    pthread_t audio_tid;
-    int       stat;
+    logif ("loading tracks in configured directory `%s'...",
+           ncap_config.track_path);
+    strqueue_t sq;
+    strqueue_init (&sq);
+    load_dir (&sq, ncap_config.track_path);
 
-    pthread_create (&audio_tid, NULL, tfn_audio_play, &stat);
+    pthread_t                audio_tid;
+    struct audio_play_args_t audio_args = {
+        .prefix = ncap_config.track_path,
+        .sq     = &sq,
+    };
+
+    pthread_create (&audio_tid, NULL, tfn_audio_play, &audio_args);
     logi ("spawned audio_play thread");
 
     render ();
 
     logi ("joining threads...");
     pthread_join (audio_tid, NULL);
-    logdf ("audio_play thread joined with a status code of %d...", stat);
+    logdf ("audio_play thread joined with a status code of %d...",
+           audio_args.errstat);
+
+    strqueue_deinit (&sq);
 
     logi ("deinit config...");
     config_deinit ();

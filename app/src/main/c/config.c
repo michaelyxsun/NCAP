@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -14,6 +15,7 @@ static const char *FILENAME = "config.c";
 
 struct config_t ncap_config;
 FILE           *ncap_config_fp = NULL;
+static char    *pathbuf        = NULL;
 
 pthread_mutex_t config_mx = PTHREAD_MUTEX_INITIALIZER;
 
@@ -54,6 +56,8 @@ config_deinit (void)
 {
     pthread_mutex_lock (&config_mx);
 
+    free (pathbuf);
+
     int ret;
 
     if (fclose (ncap_config_fp) == EOF) {
@@ -72,7 +76,11 @@ void
 config_read (void)
 {
     pthread_mutex_lock (&config_mx);
-    fread (&ncap_config, sizeof (struct config_t), 1, ncap_config_fp);
+    fread (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
+           ncap_config_fp);
+    pathbuf = realloc (pathbuf, ncap_config.track_path_len);
+    fgets (pathbuf, ncap_config.track_path_len, ncap_config_fp);
+    ncap_config.track_path = pathbuf;
     pthread_mutex_unlock (&config_mx);
 }
 
@@ -80,7 +88,9 @@ void
 config_write (void)
 {
     pthread_mutex_lock (&config_mx);
-    fwrite (&ncap_config, sizeof (struct config_t), 1, ncap_config_fp);
+    fwrite (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
+            ncap_config_fp);
+    fputs (ncap_config.track_path, ncap_config_fp);
     pthread_mutex_unlock (&config_mx);
 }
 
@@ -92,6 +102,9 @@ config_logdump ()
     logif ("aaudio_optimize:\t%hhu", ncap_config.aaudio_optimize);
     logif ("volume:\t%hhu", ncap_config.volume);
     logif ("cur_track:\t%u", ncap_config.cur_track);
+    logif ("cur_track:\t%u", ncap_config.cur_track);
+    logif ("track_path_len:\t%u", ncap_config.track_path_len);
+    logif ("track_path:\t%s", ncap_config.track_path);
 }
 
 int
