@@ -123,8 +123,8 @@ main (void)
             logi ("creating config...");
             ncap_config.aaudio_optimize = 2; // power saving
             ncap_config.cur_track       = 0;
-            ncap_config.isrepeat        = false;
-            ncap_config.isshuffle       = false;
+            ncap_config.isrepeat        = 0; // false
+            ncap_config.isshuffle       = 0; // false
             ncap_config.volume          = 100;
             ncap_config.track_path      = "/sdcard/Download";
             ncap_config.track_path_len  = strlen (ncap_config.track_path) + 1;

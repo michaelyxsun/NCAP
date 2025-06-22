@@ -6,10 +6,23 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifndef NCAP_ISTEST
 #include <aaudio/AAudio.h>
+#include "logging.h"
+#else // NCAP_ISTEST
+#define loge(fmt)       puts
+#define logw(fmt)       puts
+#define logi(fmt)       puts
+#define logd(fmt)       puts
+#define logv(fmt)       puts
+#define logef(fmt, ...) printf
+#define logwf(fmt, ...) printf
+#define logif(fmt, ...) printf
+#define logdf(fmt, ...) printf
+#define logvf(fmt, ...) printf
+#endif // NCAP_ISTEST
 
 #include "config.h"
-#include "logging.h"
 
 static const char *FILENAME = "config.c";
 
@@ -58,7 +71,7 @@ config_deinit (void)
 
     free (pathbuf);
 
-    int ret;
+    int ret = CONFIG_OK;
 
     if (fclose (ncap_config_fp) == EOF) {
         logef ("ERROR: could not close file pointed to bye ncap_config_fp: %s",
@@ -110,6 +123,7 @@ config_logdump ()
 int
 to_aaudio_pm (uint8_t cfg_code)
 {
+#ifndef NCAP_ISTEST
     switch (cfg_code) {
         case 1:
             return AAUDIO_PERFORMANCE_MODE_LOW_LATENCY;
@@ -119,4 +133,8 @@ to_aaudio_pm (uint8_t cfg_code)
         default:
             return AAUDIO_PERFORMANCE_MODE_NONE;
     }
+#else  // NCAP_ISTEST
+    puts ("to_aaudio_pm doesn't work when NCAP_ISTEST is defined");
+    return 0;
+#endif // !NCAP_ISTEST
 }

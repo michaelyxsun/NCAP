@@ -38,8 +38,7 @@ deinit:
     strqueue_deinit (&sq);
 
 exit:
-    printf ("\n------REPORT------\npasses:\t%zu\nfails:\t%zu\ntotal:\t%zu\n",
-            passcnt, failcnt, passcnt + failcnt);
+    report ();
 
     return 0;
 }

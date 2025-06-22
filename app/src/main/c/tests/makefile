@@ -1,7 +1,9 @@
 .PHONY: default test clean
 
+TARG ?= main
+
 CC ?= clang
-OPTIMIZE ?= -Og
+OPTIMIZE ?=
 CFLAGS_EXTRA ?=
 
 CFLAGS = -g -Wall -Wextra -Wpedantic $(OPTIMIZE)
@@ -10,10 +12,8 @@ BIN = test
 BUILD_PREFIX = build
 OUT = $(BUILD_PREFIX)/$(BIN)
 
-LISTS=testlist.txt
-
 default:
-	$(CC) $$(find . -type f -name '*.c' | tr '\n' ' ') $$(awk '{print "../" $$0 ".c"}' $(LISTS) | tr '\n' ' ') -o $(OUT) $(CFLAGS) $(CFLAGS_EXTRA)
+	$(CC) test_$(TARG).c ../$(TARG).c -o $(OUT) $(CFLAGS) $(CFLAGS_EXTRA)
 
 test: default
 	./$(OUT)

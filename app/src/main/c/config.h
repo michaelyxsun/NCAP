@@ -10,6 +10,9 @@
 
 extern pthread_mutex_t config_mx;
 
+/**
+ * struct config_t should be packed
+ */
 extern struct config_t {
     uint8_t isrepeat;  // bool
     uint8_t isshuffle; // bool

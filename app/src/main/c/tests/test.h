@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 
 extern size_t passcnt, failcnt;
 
@@ -26,5 +27,9 @@ extern size_t passcnt, failcnt;
     } else {                                                                  \
         ++passcnt;                                                            \
     }
+
+#define report()                                                              \
+    printf ("\n------REPORT------\npasses:\t%zu\nfails:\t%zu\ntotal:\t%zu\n", \
+            passcnt, failcnt, passcnt + failcnt)
 
 #endif // !TEST_H
