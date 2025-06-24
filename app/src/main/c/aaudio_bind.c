@@ -221,7 +221,7 @@ audio_play (const char *fn)
         return NCAP_EGEN;
     }
 
-    loge ("AAudio stream closed.");
+    logi ("AAudio stream closed.");
 
     return NCAP_OK;
 }

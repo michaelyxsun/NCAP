@@ -3,6 +3,7 @@
 #include <jni.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,7 +37,7 @@ path_concat (char *dst, const char *restrict prefix, const char *restrict file)
 }
 
 static int
-load_dir (strvec_t *sq, const char *path)
+load_dir (strvec_t *sv, const char *path)
 {
     struct dirent *dir;
     DIR           *dp = opendir (path);
@@ -52,7 +53,7 @@ load_dir (strvec_t *sq, const char *path)
             continue;
         }
 
-        strvec_pushb (sq, dir->d_name, strlen (dir->d_name));
+        strvec_pushb (sv, dir->d_name, strlen (dir->d_name));
         logvf ("pushed file `%s'", dir->d_name);
     }
 
@@ -68,31 +69,30 @@ load_dir (strvec_t *sq, const char *path)
 
 struct audio_play_args_t {
     const char *const prefix;
-    strvec_t *const   sq;
+    strvec_t *const   sv;
     int               errstat;
 };
 
 static void *
 tfn_audio_play (void *args_vp)
 {
-    pthread_mutex_lock (&render_mx);
+    pthread_mutex_lock (&render_ready_mx);
 
     while (render_ready == false)
-        pthread_cond_wait (&render_cv, &render_mx);
+        pthread_cond_wait (&render_ready_cv, &render_ready_mx);
 
-    pthread_mutex_unlock (&render_mx);
+    pthread_mutex_unlock (&render_ready_mx);
 
     logi ("render_ready = true; audio_play thread proceeding");
 
     struct audio_play_args_t *args = args_vp;
-    strvec_t *const           sq   = args->sq;
+    strvec_t *const           sv   = args->sv;
 
-    for (size_t i = 0; i < sq->siz; ++i) {
-        logvf ("preparing to play `%s'", sq->ptr[i]);
+    for (size_t i = 0; i < sv->siz; ++i) {
+        logvf ("preparing to play `%s'", sv->ptr[i]);
 
-        // const char *fn_in = "/sdcard/Download/audio.m4a";
         static char fn_in[MAX_PATH_LEN], fn_out[MAX_PATH_LEN];
-        path_concat (fn_in, args->prefix, sq->ptr[i]);
+        path_concat (fn_in, args->prefix, sv->ptr[i]);
         path_concat (fn_out, activity->internalDataPath,
                      NCAP_AUDIO_CACHE_FILE);
 
@@ -104,6 +104,11 @@ tfn_audio_play (void *args_vp)
             goto exit;
         }
 
+        logd ("locking active track id mutex to update render...");
+        pthread_mutex_lock (&render_atrid_mx);
+        render_atrid = i;
+        pthread_mutex_unlock (&render_atrid_mx);
+
         logi ("playing audio...");
 
         if ((args->errstat = audio_play (fn_out)) != NCAP_OK) {
@@ -114,7 +119,9 @@ tfn_audio_play (void *args_vp)
     }
 
 exit:
-    // free (fn_out);
+    pthread_mutex_lock (&render_atrid_mx);
+    render_atrid = -1;
+    pthread_mutex_unlock (&render_atrid_mx);
     pthread_exit (NULL);
 }
 
@@ -126,7 +133,7 @@ main (void)
     static char cfgfile[MAX_PATH_LEN];
     path_concat (cfgfile, activity->internalDataPath, NCAP_CONFIG_FILE);
     logdf ("initializing config file `%s'", cfgfile);
-    // remove (cfgfile);
+    remove (cfgfile);
     switch (config_init (cfgfile)) {
         case CONFIG_INIT_CREAT:
             logi ("creating config...");
@@ -142,7 +149,12 @@ main (void)
             break;
         case CONFIG_INIT_EXISTS:
             logi ("config exists. reading config...");
-            config_read ();
+
+            if (config_read () < 0) {
+                loge ("ERROR: config_read failed. aborting...");
+                return 1;
+            }
+
             break;
         case CONFIG_ERR:
         default:
@@ -153,29 +165,34 @@ main (void)
 
     logif ("loading tracks in configured directory `%s'...",
            ncap_config.track_path);
-    strvec_t sq;
-    strvec_init (&sq);
-    load_dir (&sq, ncap_config.track_path);
+    strvec_t sv;
+    strvec_init (&sv);
+    load_dir (&sv, ncap_config.track_path);
 
     pthread_t                audio_tid;
     struct audio_play_args_t audio_args = {
         .prefix = ncap_config.track_path,
-        .sq     = &sq,
+        .sv     = &sv,
     };
 
     pthread_create (&audio_tid, NULL, tfn_audio_play, &audio_args);
     logi ("spawned audio_play thread");
 
-    render ();
+    render (&sv);
 
     logi ("joining threads...");
     pthread_join (audio_tid, NULL);
     logdf ("audio_play thread joined with a status code of %d...",
            audio_args.errstat);
 
-    strvec_deinit (&sq);
+    strvec_deinit (&sv);
 
     logi ("deinit config...");
-    config_deinit ();
+
+    if (config_deinit () != CONFIG_OK)
+        logw ("WARN: config_deinit failed");
+
     logi ("main finished");
+
+    return 0;
 }

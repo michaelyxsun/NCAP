@@ -7,6 +7,8 @@
 #include <raylib.h>
 #include <stdbool.h>
 
+#include "strvec.h"
+
 #include <android_native_app_glue.h>
 
 extern struct android_app *GetAndroidApp (void);
@@ -62,10 +64,13 @@ struct obj_t {
     void (*act) (void);
 };
 
+extern pthread_mutex_t render_ready_mx;
+extern pthread_cond_t  render_ready_cv;
 extern bool            render_ready;
-extern pthread_mutex_t render_mx;
-extern pthread_cond_t  render_cv;
 
-extern void render (void);
+extern pthread_mutex_t render_atrid_mx;
+extern int             render_atrid;
+
+extern void render (const strvec_t *sv);
 
 #endif // !RENDER_H

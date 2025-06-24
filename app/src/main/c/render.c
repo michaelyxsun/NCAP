@@ -5,12 +5,16 @@
 #include "logging.h"
 #include "pthread.h"
 #include "render.h"
+#include "strvec.h"
 
 static const char *FILENAME = "render.c";
 
-bool            render_ready = false;
-pthread_mutex_t render_mx    = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t  render_cv    = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t render_ready_mx = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  render_ready_cv = PTHREAD_COND_INITIALIZER;
+bool            render_ready    = false;
+
+pthread_mutex_t render_atrid_mx = PTHREAD_MUTEX_INITIALIZER;
+int             render_atrid    = -1;
 
 static const int FPS_ACTIVE = 30;
 static const int FPS_STATIC = 5;
@@ -34,6 +38,8 @@ act_wclose (void)
 static struct obj_t objs[MAX_OBJS];
 static size_t       objs_len;
 
+static struct rl_rect_arg_t rectbg;
+
 static void
 init_objs (const int SCW, const int SCH)
 {
@@ -44,12 +50,24 @@ init_objs (const int SCW, const int SCH)
     struct rl_text_arg_t *textarg;
     struct rl_rect_arg_t *rectarg;
 
+    // rectangle background
+
+    rectarg = objs[0].params = &rectbg;
+    objs[0].typ              = RL_RECT;
+    objs[0].dyn              = false;
+
+    w = rectarg->siz.x = SCW * 0.8;
+    h = rectarg->siz.y = SCH * 0.5;
+    rectarg->pos.x     = (SCW - w) >> 1;
+    rectarg->pos.y     = (SCH - h) >> 1;
+    rectarg->color     = DARKGRAY;
+
     // close text
 
-    static struct rl_text_arg_t objs1;
-    textarg = objs[1].params = &objs1;
-    objs[1].typ              = RL_TEXT;
-    objs[1].dyn              = false;
+    static struct rl_text_arg_t objs2;
+    textarg = objs[2].params = &objs2;
+    objs[2].typ              = RL_TEXT;
+    objs[2].dyn              = false;
 
     textarg->str  = "close";
     textarg->fsiz = FONTSIZ + 20;
@@ -61,11 +79,11 @@ init_objs (const int SCW, const int SCH)
 
     // close text background (tappable)
 
-    static struct rl_rect_arg_t objs0;
-    rectarg = objs[0].params = &objs0;
-    objs[0].typ              = RL_RECT;
-    objs[0].dyn              = true;
-    objs[0].act              = act_wclose;
+    static struct rl_rect_arg_t objs1;
+    rectarg = objs[1].params = &objs1;
+    objs[1].typ              = RL_RECT;
+    objs[1].dyn              = true;
+    objs[1].act              = act_wclose;
 
     rectarg->siz.x = w + 20;
     rectarg->siz.y = h + 20;
@@ -73,25 +91,25 @@ init_objs (const int SCW, const int SCH)
     rectarg->pos.y = y - 10;
     rectarg->color = RED;
 
-    // prompt text
-
-    static struct rl_text_arg_t objs2;
-    textarg = objs[2].params = &objs2;
-    objs[2].typ              = RL_TEXT;
-    objs[2].dyn              = false;
-
-    pos += (add = snprintf (buf, sizeof buf_ - pos,
-                            "hello from raylib in %d x %d", SCW, SCH)
-                  + 1);
-
-    textarg->str   = buf;
-    textarg->fsiz  = FONTSIZ;
-    w              = MeasureText (buf, FONTSIZ);
-    textarg->x     = (SCW - w) >> 1;
-    textarg->y     = (SCH - FONTSIZ) >> 1;
-    textarg->color = BLACK;
-
-    buf += add + 1;
+    // // prompt text
+    //
+    // static struct rl_text_arg_t objs3;
+    // textarg = objs[3].params = &objs3;
+    // objs[3].typ              = RL_TEXT;
+    // objs[3].dyn              = false;
+    //
+    // pos += (add = snprintf (buf, sizeof buf_ - pos,
+    //                         "hello from raylib in %d x %d", SCW, SCH)
+    //               + 1);
+    //
+    // textarg->str   = buf;
+    // textarg->fsiz  = FONTSIZ;
+    // w              = MeasureText (buf, FONTSIZ);
+    // textarg->x     = (SCW - w) >> 1;
+    // textarg->y     = (SCH - FONTSIZ) >> 1;
+    // textarg->color = BLACK;
+    //
+    // buf += add + 1;
 
     objs_len = 3;
 }
@@ -164,8 +182,35 @@ touches (Vector2 p, const struct obj_t *const obj)
     }
 }
 
+static void
+draw_tracks (const strvec_t *sv)
+{
+    const int pad = 10;
+#define two_pad (pad << 1)
+    const int txtpad = 6;
+#define two_txtpad (txtpad << 1)
+    const int spacing = 6;
+    const int fontsiz = FONTSIZ;
+    Vector2   rectpos = { .x = rectbg.pos.x + pad, .y = rectbg.pos.y + pad };
+    const Vector2 rectsiz
+        = { .x = rectbg.siz.x - two_pad, .y = fontsiz + two_txtpad };
+
+    pthread_mutex_lock (&render_atrid_mx);
+
+    for (size_t i = 0; i < sv->siz; ++i) {
+        DrawRectangleV (rectpos, rectsiz, i == render_atrid ? YELLOW : WHITE);
+        DrawText (sv->ptr[i], rectpos.x + txtpad, rectpos.y + txtpad, fontsiz,
+                  BLACK);
+        rectpos.y += rectsiz.y + spacing;
+    }
+
+    pthread_mutex_unlock (&render_atrid_mx);
+#undef two_txtpad
+#undef two_pad
+}
+
 void
-render (void)
+render (const strvec_t *sv)
 {
     InitWindow (0, 0, "com.msun.ncap");
     SetTargetFPS (fps);
@@ -182,10 +227,12 @@ render (void)
 
     logi ("initialization finished, locking and signaling...");
 
-    pthread_mutex_lock (&render_mx);
+    pthread_mutex_lock (&render_ready_mx);
     render_ready = true;
-    pthread_cond_signal (&render_cv); // NOTE: change to broadcast when needed
-    pthread_mutex_unlock (&render_mx);
+
+    // NOTE: change to broadcast when needed
+    pthread_cond_signal (&render_ready_cv);
+    pthread_mutex_unlock (&render_ready_mx);
 
     init_objs (SCW, SCH);
 
@@ -209,6 +256,8 @@ render (void)
 
                 for (size_t i = 0; i < objs_len; ++i)
                     draw (&objs[i]);
+
+                draw_tracks (sv);
             }
             EndDrawing ();
             continue;
@@ -252,6 +301,8 @@ render (void)
 
             for (size_t i = 0; i < objs_len; ++i)
                 draw (&objs[i]);
+
+            draw_tracks (sv);
         }
         EndDrawing ();
     }

@@ -32,6 +32,7 @@ extern struct config_t {
 
 extern FILE *ncap_config_fp;
 
+#define CONFIG_EMEM        -2
 #define CONFIG_ERR         -1
 #define CONFIG_OK          0
 #define CONFIG_INIT_CREAT  1
@@ -44,7 +45,7 @@ extern int config_init (const char *fn);
 extern int config_deinit (void);
 
 /** synced with config_mx */
-extern void config_read (void);
+extern int config_read (void);
 
 /** synced with config_mx */
 extern void config_write (void);

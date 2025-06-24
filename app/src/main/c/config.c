@@ -28,7 +28,9 @@ static const char *FILENAME = "config.c";
 
 struct config_t ncap_config;
 FILE           *ncap_config_fp = NULL;
-static char    *pathbuf        = NULL;
+
+/** set to NULL when unused/freed */
+static char *pathbuf = NULL;
 
 pthread_mutex_t config_mx = PTHREAD_MUTEX_INITIALIZER;
 
@@ -70,11 +72,12 @@ config_deinit (void)
     pthread_mutex_lock (&config_mx);
 
     free (pathbuf);
+    pathbuf = NULL;
 
     int ret = CONFIG_OK;
 
     if (fclose (ncap_config_fp) == EOF) {
-        logef ("ERROR: could not close file pointed to bye ncap_config_fp: %s",
+        logef ("ERROR: could not close file pointed to by ncap_config_fp: %s",
                strerror (errno));
         ret = CONFIG_ERR;
         goto exit;
@@ -85,39 +88,51 @@ exit:
     return ret;
 }
 
-void
+int
 config_read (void)
 {
     pthread_mutex_lock (&config_mx);
+    fseek (ncap_config_fp, 0, SEEK_SET);
     fread (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
            ncap_config_fp);
-    pathbuf = realloc (pathbuf, ncap_config.track_path_len);
-    fgets (pathbuf, ncap_config.track_path_len, ncap_config_fp);
+
+    if (pathbuf != NULL)
+        free (pathbuf);
+
+    if ((pathbuf = malloc (ncap_config.track_path_len)) == NULL)
+        return CONFIG_EMEM;
+
+    fread (pathbuf, sizeof (char), ncap_config.track_path_len, ncap_config_fp);
     ncap_config.track_path = pathbuf;
     pthread_mutex_unlock (&config_mx);
+
+    return CONFIG_OK;
 }
 
 void
 config_write (void)
 {
     pthread_mutex_lock (&config_mx);
+    fseek (ncap_config_fp, 0, SEEK_SET);
     fwrite (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
             ncap_config_fp);
     fputs (ncap_config.track_path, ncap_config_fp);
+    fputc ('\0', ncap_config_fp);
     pthread_mutex_unlock (&config_mx);
 }
 
 void
 config_logdump ()
 {
+    pthread_mutex_lock (&config_mx);
     logif ("isrepeat:\t%hhu", ncap_config.isrepeat);
     logif ("isshuffle:\t%hhu", ncap_config.isshuffle);
     logif ("aaudio_optimize:\t%hhu", ncap_config.aaudio_optimize);
     logif ("volume:\t%hhu", ncap_config.volume);
     logif ("cur_track:\t%u", ncap_config.cur_track);
-    logif ("cur_track:\t%u", ncap_config.cur_track);
     logif ("track_path_len:\t%u", ncap_config.track_path_len);
     logif ("track_path:\t%s", ncap_config.track_path);
+    pthread_mutex_unlock (&config_mx);
 }
 
 int
