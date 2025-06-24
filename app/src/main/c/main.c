@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <errno.h>
 #include <jni.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -11,7 +12,7 @@
 #include "logging.h"
 #include "properties.h"
 #include "render.h"
-#include "strqueue.h"
+#include "strvec.h"
 
 static const char *FILENAME = "main.c";
 
@@ -35,7 +36,7 @@ path_concat (char *dst, const char *restrict prefix, const char *restrict file)
 }
 
 static int
-load_dir (strqueue_t *sq, const char *path)
+load_dir (strvec_t *sq, const char *path)
 {
     struct dirent *dir;
     DIR           *dp = opendir (path);
@@ -51,16 +52,23 @@ load_dir (strqueue_t *sq, const char *path)
             continue;
         }
 
-        strqueue_push (sq, dir->d_name, strlen (dir->d_name));
+        strvec_pushb (sq, dir->d_name, strlen (dir->d_name));
         logvf ("pushed file `%s'", dir->d_name);
     }
+
+    if (closedir (dp) != 0) {
+        logef ("ERROR: closedir failed: %s", strerror (errno));
+        return -1;
+    }
+
+    logdf ("closed DIR pointer to path `%s'", path);
 
     return 0;
 }
 
 struct audio_play_args_t {
     const char *const prefix;
-    strqueue_t *const sq;
+    strvec_t *const   sq;
     int               errstat;
 };
 
@@ -77,13 +85,14 @@ tfn_audio_play (void *args_vp)
     logi ("render_ready = true; audio_play thread proceeding");
 
     struct audio_play_args_t *args = args_vp;
+    strvec_t *const           sq   = args->sq;
 
-    for (; args->sq->siz; strqueue_pop (args->sq)) {
-        logvf ("preparing to play `%s'", strqueue_front (args->sq));
+    for (size_t i = 0; i < sq->siz; ++i) {
+        logvf ("preparing to play `%s'", sq->ptr[i]);
 
         // const char *fn_in = "/sdcard/Download/audio.m4a";
         static char fn_in[MAX_PATH_LEN], fn_out[MAX_PATH_LEN];
-        path_concat (fn_in, args->prefix, strqueue_front (args->sq));
+        path_concat (fn_in, args->prefix, sq->ptr[i]);
         path_concat (fn_out, activity->internalDataPath,
                      NCAP_AUDIO_CACHE_FILE);
 
@@ -144,8 +153,8 @@ main (void)
 
     logif ("loading tracks in configured directory `%s'...",
            ncap_config.track_path);
-    strqueue_t sq;
-    strqueue_init (&sq);
+    strvec_t sq;
+    strvec_init (&sq);
     load_dir (&sq, ncap_config.track_path);
 
     pthread_t                audio_tid;
@@ -164,7 +173,7 @@ main (void)
     logdf ("audio_play thread joined with a status code of %d...",
            audio_args.errstat);
 
-    strqueue_deinit (&sq);
+    strvec_deinit (&sq);
 
     logi ("deinit config...");
     config_deinit ();

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "strqueue.h"
+#include "strvec.h"
 
 #define bytecap(this) (this->cap * sizeof (char *))
 
@@ -20,7 +20,7 @@
     } while (0);
 
 int
-strqueue_init (strqueue_t *this)
+strvec_init (strvec_t *this)
 {
     this->cap = 1;
     this->siz = 0;
@@ -29,7 +29,7 @@ strqueue_init (strqueue_t *this)
 }
 
 void
-strqueue_deinit (strqueue_t *this)
+strvec_deinit (strvec_t *this)
 {
     while (this->siz)
         free (this->ptr[--this->siz]);
@@ -38,7 +38,7 @@ strqueue_deinit (strqueue_t *this)
 }
 
 int
-strqueue_push (strqueue_t *this, const char *restrict str, size_t len)
+strvec_pushb (strvec_t *this, const char *restrict str, size_t len)
 {
     if (this->siz == this->cap)
         expand (this);
@@ -53,7 +53,7 @@ strqueue_push (strqueue_t *this, const char *restrict str, size_t len)
 }
 
 void
-strqueue_pop (strqueue_t *this)
+strvec_popb (strvec_t *this)
 {
     free (this->ptr[--this->siz]);
 
