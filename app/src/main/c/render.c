@@ -1,6 +1,8 @@
 #include <raylib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "logging.h"
 #include "pthread.h"
@@ -182,26 +184,71 @@ touches (Vector2 p, const struct obj_t *const obj)
     }
 }
 
-static void
-draw_tracks (const strvec_t *sv)
+/**
+ * @param buf should be unmodified
+ */
+static size_t
+truncpos (char *buf, size_t siz, const int fontsiz, const int width)
 {
-    const int pad = 10;
-#define two_pad (pad << 1)
-    const int txtpad = 6;
-#define two_txtpad (txtpad << 1)
-    const int spacing = 6;
-    const int fontsiz = FONTSIZ;
-    Vector2   rectpos = { .x = rectbg.pos.x + pad, .y = rectbg.pos.y + pad };
-    const Vector2 rectsiz
-        = { .x = rectbg.siz.x - two_pad, .y = fontsiz + two_txtpad };
+    size_t lo = 0;
+    size_t hi = siz;
+
+    if (MeasureText (buf, fontsiz) <= width)
+        return siz;
+
+    while (lo < hi) {
+        const size_t mid = lo + ((hi - lo + 1) >> 1);
+
+        const char c = buf[mid];
+        buf[mid]     = '\0';
+
+        if (MeasureText (buf, fontsiz) <= width)
+            lo = mid;
+        else
+            hi = mid - 1;
+
+        buf[mid] = c;
+    }
+
+    return lo;
+}
+
+struct draw_tracks_params_t {
+    const int     pad;
+    const int     txtpad;
+    const int     fontsiz;
+    const Vector2 rectpos;
+    const Vector2 rectsiz;
+};
+
+static struct draw_tracks_params_t
+init_draw_tracks_params (int pad, int fontsiz)
+{
+    const struct draw_tracks_params_t params = {
+        .pad     = pad,
+        .txtpad  = fontsiz >> 1,
+        .fontsiz = fontsiz,
+        .rectpos = { .x = rectbg.pos.x + pad, .y = rectbg.pos.y + pad },
+        .rectsiz = { .x = rectbg.siz.x - (pad << 1), .y = fontsiz + fontsiz },
+    };
+
+    return params;
+}
+
+static void
+draw_tracks (const char *const *tracks, const size_t len,
+             const struct draw_tracks_params_t *par)
+{
+    Vector2 rectpos = par->rectpos;
 
     pthread_mutex_lock (&render_atrid_mx);
 
-    for (size_t i = 0; i < sv->siz; ++i) {
-        DrawRectangleV (rectpos, rectsiz, i == render_atrid ? YELLOW : WHITE);
-        DrawText (sv->ptr[i], rectpos.x + txtpad, rectpos.y + txtpad, fontsiz,
-                  BLACK);
-        rectpos.y += rectsiz.y + spacing;
+    for (size_t i = 0; i < len; ++i) {
+        DrawRectangleV (rectpos, par->rectsiz,
+                        i == render_atrid ? YELLOW : WHITE);
+        DrawText (tracks[i], rectpos.x + par->txtpad, rectpos.y + par->txtpad,
+                  par->fontsiz, BLACK);
+        rectpos.y += par->rectsiz.y + par->pad; // par->pad is spacing
     }
 
     pthread_mutex_unlock (&render_atrid_mx);
@@ -241,6 +288,23 @@ render (const strvec_t *sv)
     int     touched;
     int     ptouched = 0;
 
+    const struct draw_tracks_params_t draw_tracks_par
+        = init_draw_tracks_params (10, FONTSIZ);
+
+    char **tracks_trunc = malloc (sv->siz * sizeof (char *));
+
+    for (size_t i = 0; i < sv->siz; ++i) {
+        const size_t pos = truncpos (
+            sv->ptr[i], strlen (sv->ptr[i]) + 1, draw_tracks_par.fontsiz,
+            draw_tracks_par.rectsiz.x - (draw_tracks_par.txtpad << 1));
+
+        tracks_trunc[i] = malloc (pos + 1);
+        memcpy (tracks_trunc[i], sv->ptr[i], pos);
+        tracks_trunc[i][pos] = '\0';
+
+        logvf ("truncated track `%s' to `%s'", sv->ptr[i], tracks_trunc[i]);
+    }
+
     for (; !WindowShouldClose (); ptouched = touched, ptpos = tpos) {
         touched = GetTouchPointCount ();
 
@@ -257,7 +321,7 @@ render (const strvec_t *sv)
                 for (size_t i = 0; i < objs_len; ++i)
                     draw (&objs[i]);
 
-                draw_tracks (sv);
+                draw_tracks (tracks_trunc, sv->siz, &draw_tracks_par);
             }
             EndDrawing ();
             continue;
@@ -302,7 +366,7 @@ render (const strvec_t *sv)
             for (size_t i = 0; i < objs_len; ++i)
                 draw (&objs[i]);
 
-            draw_tracks (sv);
+            draw_tracks (tracks_trunc, sv->siz, &draw_tracks_par);
         }
         EndDrawing ();
     }
@@ -310,4 +374,11 @@ render (const strvec_t *sv)
     logi ("Closing window...");
     CloseWindow ();
     wclose = false;
+
+    logd ("freeing tracks_trunc...");
+
+    for (size_t i = 0; i < sv->siz; ++i)
+        free (tracks_trunc[i]);
+
+    free (tracks_trunc);
 }
