@@ -61,7 +61,8 @@ struct obj_t {
     void          *params;
     enum obj_typ_e typ;
     bool           dyn;
-    void (*act) (void);
+    void (*act) (struct obj_t *);
+    struct obj_t *link;
 };
 
 extern pthread_mutex_t render_ready_mx;

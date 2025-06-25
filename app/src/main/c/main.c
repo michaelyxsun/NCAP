@@ -77,10 +77,8 @@ static void *
 tfn_audio_play (void *args_vp)
 {
     pthread_mutex_lock (&render_ready_mx);
-
-    while (render_ready == false)
+    while (!render_ready)
         pthread_cond_wait (&render_ready_cv, &render_ready_mx);
-
     pthread_mutex_unlock (&render_ready_mx);
 
     logi ("render_ready = true; audio_play thread proceeding");

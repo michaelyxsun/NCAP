@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <errno.h>
+#include <pthread.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -12,6 +14,7 @@
 #include "audio.h"
 #include "config.h"
 #include "logging.h"
+#include "pthread.h"
 
 static const char *FILENAME = "aaudio_bind.c";
 
@@ -65,6 +68,10 @@ sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len)
         }
     }
 }
+
+pthread_mutex_t audio_mx     = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t  audio_cv     = PTHREAD_COND_INITIALIZER;
+bool            audio_isplay = false;
 
 int
 audio_play (const char *fn)
@@ -173,7 +180,33 @@ audio_play (const char *fn)
 
     logi ("Stream started. Playing audio...");
 
+    int pthread_err;
+
     while (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur) {
+        if ((pthread_err = pthread_mutex_lock (&audio_mx)) != 0) {
+            logef ("ERROR: pthread_mutex_lock on audio_mx failed with error "
+                   "code %d: "
+                   "%s. stopping playback...",
+                   pthread_err, strerror (pthread_err));
+            break;
+        }
+
+        if (!audio_isplay)
+            logi ("audio_isplay = false. waiting for audio_cv...");
+
+        while (!audio_isplay)
+            pthread_cond_wait (&audio_cv, &audio_mx);
+
+        if ((pthread_err = pthread_mutex_unlock (&audio_mx)) != 0) {
+            logef ("ERROR: pthread_mutex_unlock on audio_mx failed with error "
+                   "code "
+                   "%d: %s. stopping playback...",
+                   pthread_err, strerror (pthread_err));
+            break;
+        }
+
+        // play
+
         if (fread (buf, PCM_DATA_WIDTH, buflen, fp) <= 0)
             logw ("WARN: fread returned with code <= 0");
 

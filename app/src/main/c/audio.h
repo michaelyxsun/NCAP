@@ -3,6 +3,8 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #define CWAV_HEADER_SIZ 44
@@ -53,6 +55,10 @@ struct cwav_header_t {
 #define NCAP_ENULL  4
 
 // TODO(M-Y-Sun): add err2str
+
+extern pthread_mutex_t audio_mx;
+extern pthread_cond_t  audio_cv;
+extern bool            audio_isplay;
 
 extern int libav_cvt_cwav (const char *fn_in, const char *fn_out);
 

@@ -10,6 +10,6 @@ cd "$(dirname "$0")" || exit
 # - arm64-v8a
 # - x86_64
 
-./gradlew build &&
+./gradlew build $3 &&
     adb -s "$1" install "app/build/outputs/apk/debug/app-$2-debug.apk" &&
     ./log.sh "$1"

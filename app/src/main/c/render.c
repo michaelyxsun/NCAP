@@ -1,11 +1,12 @@
+#include <pthread.h>
 #include <raylib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "audio.h"
 #include "logging.h"
-#include "pthread.h"
 #include "render.h"
 #include "strvec.h"
 
@@ -20,16 +21,49 @@ int             render_atrid    = -1;
 
 static const int FPS_ACTIVE = 30;
 static const int FPS_STATIC = 5;
-static const int FONTSIZ    = 40;
+static const int FONTSIZ    = 48;
 static int       fps        = FPS_STATIC;
 
 static bool wclose = false;
 
 static void
-act_wclose (void)
+act_wclose (struct obj_t *this)
 {
     logi ("window close signaled");
     wclose = true;
+}
+
+static void
+act_toggleplay (struct obj_t *this)
+{
+    logi ("act_toggleplay signaled");
+    logdf ("audio_isplay: %d", audio_isplay);
+
+    struct rl_rect_arg_t *const par     = this->params;
+    struct rl_text_arg_t *const linkpar = this->link->params;
+
+    int err = pthread_mutex_trylock (&audio_mx);
+    logdf ("trylocked audio_mx mutex with error code %d: %s", err,
+           strerror (err));
+
+    if (audio_isplay) {
+        audio_isplay = false;
+        memcpy (linkpar->str, " play", 6);
+        par->color = DARKGREEN;
+    } else {
+        audio_isplay = true;
+        memcpy (linkpar->str, "pause", 6);
+        par->color = MAROON;
+
+        logi ("signaling audio_cv to resume...");
+        err = pthread_cond_signal (&audio_cv);
+        logdf ("pthread_cond_signal returned error code %d: %s", err,
+               strerror (err));
+    }
+
+    err = pthread_mutex_unlock (&audio_mx);
+    logdf ("unlocked audio_mx mutex with error code %d: %s", err,
+           strerror (err));
 }
 
 /**
@@ -86,34 +120,45 @@ init_objs (const int SCW, const int SCH)
     objs[1].typ              = RL_RECT;
     objs[1].dyn              = true;
     objs[1].act              = act_wclose;
+    objs[1].link             = &objs[2];
 
-    rectarg->siz.x = w + 20;
-    rectarg->siz.y = h + 20;
-    rectarg->pos.x = x - 10;
-    rectarg->pos.y = y - 10;
+    rectarg->siz.x = w + 64;
+    rectarg->siz.y = h + 32;
+    rectarg->pos.x = x - 32;
+    rectarg->pos.y = y - 16;
     rectarg->color = RED;
 
-    // // prompt text
-    //
-    // static struct rl_text_arg_t objs3;
-    // textarg = objs[3].params = &objs3;
-    // objs[3].typ              = RL_TEXT;
-    // objs[3].dyn              = false;
-    //
-    // pos += (add = snprintf (buf, sizeof buf_ - pos,
-    //                         "hello from raylib in %d x %d", SCW, SCH)
-    //               + 1);
-    //
-    // textarg->str   = buf;
-    // textarg->fsiz  = FONTSIZ;
-    // w              = MeasureText (buf, FONTSIZ);
-    // textarg->x     = (SCW - w) >> 1;
-    // textarg->y     = (SCH - FONTSIZ) >> 1;
-    // textarg->color = BLACK;
-    //
-    // buf += add + 1;
+    static struct rl_text_arg_t objs4;
+    textarg = objs[4].params = &objs4;
+    objs[4].typ              = RL_TEXT;
+    objs[4].dyn              = false;
 
-    objs_len = 3;
+    static char playctl_str[6] = " play";
+    textarg->str               = playctl_str;
+    textarg->fsiz              = FONTSIZ + 10;
+    w                          = MeasureText ("pause", textarg->fsiz);
+    h                          = textarg->fsiz;
+    x = textarg->x = (SCW - w) >> 1;
+    y = textarg->y = rectbg.pos.y - h - 30;
+    printf ("y: %d\n", y);
+    textarg->color = WHITE;
+
+    // play/pause button background (tappable)
+
+    static struct rl_rect_arg_t objs3;
+    rectarg = objs[3].params = &objs3;
+    objs[3].typ              = RL_RECT;
+    objs[3].dyn              = true;
+    objs[3].act              = act_toggleplay;
+    objs[3].link             = &objs[4];
+
+    rectarg->siz.x = w + 64;
+    rectarg->siz.y = h + 32;
+    rectarg->pos.x = x - 32;
+    rectarg->pos.y = y - 16;
+    rectarg->color = DARKGREEN;
+
+    objs_len = 5;
 }
 
 static void
@@ -343,8 +388,10 @@ render (const strvec_t *sv)
                 if (objs[i].dyn == false)
                     continue;
 
-                if (touches (ptpos, &objs[i]))
-                    objs[i].act ();
+                if (touches (ptpos, &objs[i])) {
+                    objs[i].act (&objs[i]);
+                    logdf ("act called for object %zu", i);
+                }
             }
         }
 
