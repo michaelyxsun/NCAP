@@ -12,6 +12,9 @@
 
 static const char *FILENAME = "render.c";
 
+pthread_mutex_t render_wclose_mx = PTHREAD_MUTEX_INITIALIZER;
+bool            wclose           = false;
+
 pthread_mutex_t render_ready_mx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  render_ready_cv = PTHREAD_COND_INITIALIZER;
 bool            render_ready    = false;
@@ -24,13 +27,21 @@ static const int FPS_STATIC = 5;
 static const int FONTSIZ    = 48;
 static int       fps        = FPS_STATIC;
 
-static bool wclose = false;
-
 static void
 act_wclose (struct obj_t *this)
 {
     logi ("window close signaled");
+    int ret = pthread_mutex_trylock (&render_wclose_mx);
+    if (ret != 0) {
+        logwf ("WARN: act_wclose could not acquire render_wclose_mx. Error "
+               "code %d: %s",
+               ret, strerror (ret));
+        return;
+    }
+
     wclose = true;
+
+    pthread_mutex_unlock (&render_wclose_mx);
 }
 
 static void
@@ -395,8 +406,21 @@ render (const strvec_t *sv)
             }
         }
 
+        // test window close
+
+        int ret = pthread_mutex_trylock (&render_wclose_mx);
+        if (ret != 0) {
+            logwf (
+                "WARN: act_wclose could not acquire render_wclose_mx. Error "
+                "code %d: %s",
+                ret, strerror (ret));
+            return;
+        }
+
         if (wclose)
             break;
+
+        pthread_mutex_unlock (&render_wclose_mx);
 
         BeginDrawing ();
         {
@@ -420,7 +444,19 @@ render (const strvec_t *sv)
 
     logi ("Closing window...");
     CloseWindow ();
+
+    // set wclose
+    int ret = pthread_mutex_trylock (&render_wclose_mx);
+    if (ret != 0) {
+        logwf ("WARN: act_wclose could not acquire render_wclose_mx. Error "
+               "code %d: %s",
+               ret, strerror (ret));
+        return;
+    }
+
     wclose = false;
+
+    pthread_mutex_unlock (&render_wclose_mx);
 
     logd ("freeing tracks_trunc...");
 

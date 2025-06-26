@@ -14,7 +14,7 @@
 #include "audio.h"
 #include "config.h"
 #include "logging.h"
-#include "pthread.h"
+#include "render.h"
 
 static const char *FILENAME = "aaudio_bind.c";
 
@@ -183,6 +183,23 @@ audio_play (const char *fn)
     int pthread_err;
 
     while (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur) {
+        // check for window close
+
+        int ret = pthread_mutex_trylock (&render_wclose_mx);
+        if (ret == 0) {
+            if (wclose) {
+                logi ("stopping playback...; wclose = true");
+                break;
+            }
+        } else {
+            logwf ("WARN: could not acquire render_wclose_mx. Error "
+                   "code %d: %s. continuing...",
+                   ret, strerror (ret));
+        }
+        pthread_mutex_unlock (&render_wclose_mx);
+
+        // check for pause (playback control)
+
         if ((pthread_err = pthread_mutex_lock (&audio_mx)) != 0) {
             logef ("ERROR: pthread_mutex_lock on audio_mx failed with error "
                    "code %d: "

@@ -65,6 +65,9 @@ struct obj_t {
     struct obj_t *link;
 };
 
+extern pthread_mutex_t render_wclose_mx;
+extern bool            wclose;
+
 extern pthread_mutex_t render_ready_mx;
 extern pthread_cond_t  render_ready_cv;
 extern bool            render_ready;
