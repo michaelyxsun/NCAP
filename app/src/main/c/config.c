@@ -37,39 +37,49 @@ pthread_mutex_t config_mx = PTHREAD_MUTEX_INITIALIZER;
 int
 config_init (const char *fn)
 {
-    pthread_mutex_lock (&config_mx);
+    int pth_ret;
 
-    int ret;
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return CONFIG_ETHRD;
+    }
 
     if (access (fn, F_OK) == 0) {
         if ((ncap_config_fp = fopen (fn, "rb+")) == NULL) {
             logef ("ERROR: could not open config file `%s' for rb+: %s", fn,
                    strerror (errno));
-            ret = CONFIG_ERR;
+            pth_ret = CONFIG_ERR;
             goto exit;
         }
 
-        ret = CONFIG_INIT_EXISTS;
+        pth_ret = CONFIG_INIT_EXISTS;
     } else {
         if ((ncap_config_fp = fopen (fn, "wb+")) == NULL) {
             logef ("ERROR: could not open config file `%s' for wb+: %s", fn,
                    strerror (errno));
-            ret = CONFIG_ERR;
+            pth_ret = CONFIG_ERR;
             goto exit;
         }
 
-        ret = CONFIG_INIT_CREAT;
+        pth_ret = CONFIG_INIT_CREAT;
     }
 
 exit:
     pthread_mutex_unlock (&config_mx);
-    return ret;
+    return pth_ret;
 }
 
 int
 config_deinit (void)
 {
-    pthread_mutex_lock (&config_mx);
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return CONFIG_ETHRD;
+    }
 
     free (pathbuf);
     pathbuf = NULL;
@@ -91,7 +101,14 @@ exit:
 int
 config_read (void)
 {
-    pthread_mutex_lock (&config_mx);
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return CONFIG_ETHRD;
+    }
+
     fseek (ncap_config_fp, 0, SEEK_SET);
     fread (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
            ncap_config_fp);
@@ -104,27 +121,42 @@ config_read (void)
 
     fread (pathbuf, sizeof (char), ncap_config.track_path_len, ncap_config_fp);
     ncap_config.track_path = pathbuf;
-    pthread_mutex_unlock (&config_mx);
 
+    pthread_mutex_unlock (&config_mx);
     return CONFIG_OK;
 }
 
 void
 config_write (void)
 {
-    pthread_mutex_lock (&config_mx);
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return;
+    }
+
     fseek (ncap_config_fp, 0, SEEK_SET);
     fwrite (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
             ncap_config_fp);
     fputs (ncap_config.track_path, ncap_config_fp);
     fputc ('\0', ncap_config_fp);
+
     pthread_mutex_unlock (&config_mx);
 }
 
 void
 config_logdump ()
 {
-    pthread_mutex_lock (&config_mx);
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return;
+    }
+
     logif ("isrepeat:\t%hhu", ncap_config.isrepeat);
     logif ("isshuffle:\t%hhu", ncap_config.isshuffle);
     logif ("aaudio_optimize:\t%hhu", ncap_config.aaudio_optimize);
@@ -132,6 +164,7 @@ config_logdump ()
     logif ("cur_track:\t%u", ncap_config.cur_track);
     logif ("track_path_len:\t%u", ncap_config.track_path_len);
     logif ("track_path:\t%s", ncap_config.track_path);
+
     pthread_mutex_unlock (&config_mx);
 }
 

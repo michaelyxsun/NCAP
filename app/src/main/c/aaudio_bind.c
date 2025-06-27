@@ -185,18 +185,20 @@ audio_play (const char *fn)
     while (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur) {
         // check for window close
 
-        int ret = pthread_mutex_trylock (&render_wclose_mx);
-        if (ret == 0) {
+        int pth_ret;
+
+        if ((pth_ret = pthread_mutex_trylock (&render_wclose_mx)) == 0) {
             if (wclose) {
                 logi ("stopping playback...; wclose = true");
                 break;
             }
+
+            pthread_mutex_unlock (&render_wclose_mx);
         } else {
             logwf ("WARN: could not acquire render_wclose_mx. Error "
                    "code %d: %s. continuing...",
-                   ret, strerror (ret));
+                   pth_ret, strerror (pth_ret));
         }
-        pthread_mutex_unlock (&render_wclose_mx);
 
         // check for pause (playback control)
 
@@ -214,13 +216,7 @@ audio_play (const char *fn)
         while (!audio_isplay)
             pthread_cond_wait (&audio_cv, &audio_mx);
 
-        if ((pthread_err = pthread_mutex_unlock (&audio_mx)) != 0) {
-            logef ("ERROR: pthread_mutex_unlock on audio_mx failed with error "
-                   "code "
-                   "%d: %s. stopping playback...",
-                   pthread_err, strerror (pthread_err));
-            break;
-        }
+        pthread_mutex_unlock (&audio_mx);
 
         // play
 

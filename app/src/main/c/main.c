@@ -76,9 +76,17 @@ struct audio_play_args_t {
 static void *
 tfn_audio_play (void *args_vp)
 {
-    pthread_mutex_lock (&render_ready_mx);
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&render_ready_mx)) != 0) {
+        logwf ("WARN: could not lock render_ready_mx. Error code %d: %s",
+               pth_ret, strerror (pth_ret));
+        pthread_exit (NULL);
+    }
+
     while (!render_ready)
         pthread_cond_wait (&render_ready_cv, &render_ready_mx);
+
     pthread_mutex_unlock (&render_ready_mx);
 
     logi ("render_ready = true; audio_play thread proceeding");

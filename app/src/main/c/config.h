@@ -32,6 +32,7 @@ extern struct config_t {
 
 extern FILE *ncap_config_fp;
 
+#define CONFIG_ETHRD       -3
 #define CONFIG_EMEM        -2
 #define CONFIG_ERR         -1
 #define CONFIG_OK          0

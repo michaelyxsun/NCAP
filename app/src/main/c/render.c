@@ -9,6 +9,7 @@
 #include "logging.h"
 #include "render.h"
 #include "strvec.h"
+#include "time.h"
 
 static const char *FILENAME = "render.c";
 
@@ -30,12 +31,14 @@ static int       fps        = FPS_STATIC;
 static void
 act_wclose (struct obj_t *this)
 {
-    logi ("window close signaled");
-    int ret = pthread_mutex_trylock (&render_wclose_mx);
-    if (ret != 0) {
-        logwf ("WARN: act_wclose could not acquire render_wclose_mx. Error "
+    int pth_ret;
+
+    logi ("setting window close flag...");
+
+    if ((pth_ret = pthread_mutex_trylock (&render_wclose_mx)) != 0) {
+        logwf ("WARN: could not lock render_wclose_mx. Error "
                "code %d: %s",
-               ret, strerror (ret));
+               pth_ret, strerror (pth_ret));
         return;
     }
 
@@ -53,9 +56,12 @@ act_toggleplay (struct obj_t *this)
     struct rl_rect_arg_t *const par     = this->params;
     struct rl_text_arg_t *const linkpar = this->link->params;
 
-    int err = pthread_mutex_trylock (&audio_mx);
-    logdf ("trylocked audio_mx mutex with error code %d: %s", err,
-           strerror (err));
+    int err;
+    if ((err = pthread_mutex_trylock (&audio_mx)) != 0) {
+        logwf ("WARN: could not lock audio_mx. Error code %d: %s", err,
+               strerror (err));
+        return;
+    }
 
     if (audio_isplay) {
         audio_isplay = false;
@@ -72,9 +78,7 @@ act_toggleplay (struct obj_t *this)
                strerror (err));
     }
 
-    err = pthread_mutex_unlock (&audio_mx);
-    logdf ("unlocked audio_mx mutex with error code %d: %s", err,
-           strerror (err));
+    pthread_mutex_unlock (&audio_mx);
 }
 
 /**
@@ -296,8 +300,13 @@ draw_tracks (const char *const *tracks, const size_t len,
              const struct draw_tracks_params_t *par)
 {
     Vector2 rectpos = par->rectpos;
+    int     pth_ret;
 
-    pthread_mutex_lock (&render_atrid_mx);
+    if ((pth_ret = pthread_mutex_lock (&render_atrid_mx)) != 0) {
+        logwf ("WARN: could not lock render_atrid_mx. Error code %d: %s",
+               pth_ret, strerror (pth_ret));
+        return;
+    }
 
     for (size_t i = 0; i < len; ++i) {
         DrawRectangleV (rectpos, par->rectsiz,
@@ -308,8 +317,6 @@ draw_tracks (const char *const *tracks, const size_t len,
     }
 
     pthread_mutex_unlock (&render_atrid_mx);
-#undef two_txtpad
-#undef two_pad
 }
 
 void
@@ -327,14 +334,28 @@ render (const strvec_t *sv)
     snprintf (str, sizeof str, "hello from raylib in %d x %d", SCW, SCH);
 
     logdf ("Window dimensions: %d x %d", SCW, SCH);
-
     logi ("initialization finished, locking and signaling...");
 
-    pthread_mutex_lock (&render_ready_mx);
+    int             pth_ret;
+    struct timespec retry_ts = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
+
+    if ((pth_ret = pthread_mutex_lock (&render_ready_mx)) != 0) {
+        logwf ("WARN: could not lock render_ready_mx. Error code %d: %s. "
+               "Retrying...",
+               pth_ret, strerror (pth_ret));
+        nanosleep (&retry_ts, NULL);
+    }
+
     render_ready = true;
 
     // NOTE: change to broadcast when needed
-    pthread_cond_signal (&render_ready_cv);
+    while ((pth_ret = pthread_cond_signal (&render_ready_cv)) != 0) {
+        logwf ("WARN: could not signal render_ready_cv. Error code %d: %s. "
+               "Retrying...",
+               pth_ret, strerror (pth_ret));
+        nanosleep (&retry_ts, NULL);
+    }
+
     pthread_mutex_unlock (&render_ready_mx);
 
     init_objs (SCW, SCH);
@@ -408,19 +429,18 @@ render (const strvec_t *sv)
 
         // test window close
 
-        int ret = pthread_mutex_trylock (&render_wclose_mx);
-        if (ret != 0) {
-            logwf (
-                "WARN: act_wclose could not acquire render_wclose_mx. Error "
-                "code %d: %s",
-                ret, strerror (ret));
-            return;
+        if ((pth_ret = pthread_mutex_trylock (&render_wclose_mx)) != 0) {
+            logwf ("WARN: could not lock render_wclose_mx. Error "
+                   "code %d: %s",
+                   pth_ret, strerror (pth_ret));
+        } else {
+            if (wclose) {
+                pthread_mutex_unlock (&render_wclose_mx);
+                break;
+            }
+
+            pthread_mutex_unlock (&render_wclose_mx);
         }
-
-        if (wclose)
-            break;
-
-        pthread_mutex_unlock (&render_wclose_mx);
 
         BeginDrawing ();
         {
@@ -442,26 +462,26 @@ render (const strvec_t *sv)
         EndDrawing ();
     }
 
-    logi ("Closing window...");
-    CloseWindow ();
-
     // set wclose
-    int ret = pthread_mutex_trylock (&render_wclose_mx);
-    if (ret != 0) {
-        logwf ("WARN: act_wclose could not acquire render_wclose_mx. Error "
-               "code %d: %s",
-               ret, strerror (ret));
-        return;
+
+    logi ("locking render_wclose_mx...");
+
+    while ((pth_ret = pthread_mutex_lock (&render_wclose_mx)) != 0) {
+        logwf ("WARN: lock render_wclose_mx failed with error "
+               "code %d: %s. Retrying...",
+               pth_ret, strerror (pth_ret));
+        nanosleep (&retry_ts, NULL);
     }
 
     wclose = false;
 
     pthread_mutex_unlock (&render_wclose_mx);
 
-    logd ("freeing tracks_trunc...");
+    logi ("Closing raylib window...");
+    CloseWindow ();
 
+    logd ("freeing tracks_trunc...");
     for (size_t i = 0; i < sv->siz; ++i)
         free (tracks_trunc[i]);
-
     free (tracks_trunc);
 }
