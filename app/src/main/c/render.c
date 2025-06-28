@@ -28,12 +28,15 @@ static const int FPS_STATIC = 5;
 static const int FONTSIZ    = 48;
 static int       fps        = FPS_STATIC;
 
+static const struct timespec retry_ts
+    = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
+
 static void
 act_wclose (struct obj_t *this)
 {
     int pth_ret;
 
-    logi ("setting window close flag...");
+    logd ("trylocking render_wclose_mx...");
 
     if ((pth_ret = pthread_mutex_trylock (&render_wclose_mx)) != 0) {
         logwf ("WARN: could not lock render_wclose_mx. Error "
@@ -44,7 +47,25 @@ act_wclose (struct obj_t *this)
 
     wclose = true;
 
-    pthread_mutex_unlock (&render_wclose_mx);
+    pth_ret = pthread_mutex_unlock (&render_wclose_mx);
+    logd ("unlocked render_wclose_mx");
+
+    // signal to interrupt aaudio hang
+
+    logi ("locking audio_mx to wake up aaudio_bind thread...");
+
+    while ((pth_ret = pthread_mutex_lock (&audio_mx)) != 0) {
+        logwf ("WARN: could not lock audio_mx. Error code %d: %s. Retrying...",
+               pth_ret, strerror (pth_ret));
+        nanosleep (&retry_ts, NULL);
+    }
+
+    audio_isplay = true;
+    pth_ret      = pthread_cond_signal (&audio_cv);
+    logdf ("pthread_cond_signal returned error code %d: %s", pth_ret,
+           strerror (pth_ret));
+    pthread_mutex_unlock (&audio_mx);
+    logd ("unlocked audio_mx");
 }
 
 static void
@@ -56,10 +77,10 @@ act_toggleplay (struct obj_t *this)
     struct rl_rect_arg_t *const par     = this->params;
     struct rl_text_arg_t *const linkpar = this->link->params;
 
-    int err;
-    if ((err = pthread_mutex_trylock (&audio_mx)) != 0) {
-        logwf ("WARN: could not lock audio_mx. Error code %d: %s", err,
-               strerror (err));
+    int pth_ret;
+    if ((pth_ret = pthread_mutex_trylock (&audio_mx)) != 0) {
+        logwf ("WARN: could not lock audio_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
         return;
     }
 
@@ -73,12 +94,24 @@ act_toggleplay (struct obj_t *this)
         par->color = MAROON;
 
         logi ("signaling audio_cv to resume...");
-        err = pthread_cond_signal (&audio_cv);
-        logdf ("pthread_cond_signal returned error code %d: %s", err,
-               strerror (err));
+        pth_ret = pthread_cond_signal (&audio_cv);
+        logdf ("pthread_cond_signal returned error code %d: %s", pth_ret,
+               strerror (pth_ret));
     }
 
     pthread_mutex_unlock (&audio_mx);
+}
+
+static void
+act_incvol (struct obj_t *this)
+{
+    logi ("act_incvol called");
+}
+
+static void
+act_decvol (struct obj_t *this)
+{
+    logi ("act_decvol called");
 }
 
 /**
@@ -100,6 +133,7 @@ init_objs (const int SCW, const int SCH)
     int                   x, y, w, h, pad, add;
     struct rl_text_arg_t *textarg;
     struct rl_rect_arg_t *rectarg;
+    struct rl_tri_arg_t  *triarg;
 
     // rectangle background
 
@@ -173,7 +207,44 @@ init_objs (const int SCW, const int SCH)
     rectarg->pos.y = y - 16;
     rectarg->color = DARKGREEN;
 
-    objs_len = 5;
+    // volume up (tappable)
+
+    static struct rl_tri_arg_t objs5;
+    triarg = objs[5].params = &objs5;
+    objs[5].typ             = RL_TRI;
+    objs[5].dyn             = true;
+    objs[5].act             = act_incvol;
+
+    w = 80;
+    x = rectbg.pos.x;
+    y = rectbg.pos.y + rectbg.siz.y + 16;
+
+    triarg->v1.x = x;
+    triarg->v2.x = x + w;
+    triarg->v1.y = triarg->v2.y = y + w;
+    triarg->v3.x                = x + (w >> 1);
+    triarg->v3.y                = y;
+    triarg->color               = MAROON;
+
+    // volume down (tappable)
+
+    static struct rl_tri_arg_t objs6;
+    triarg = objs[6].params = &objs6;
+    objs[6].typ             = RL_TRI;
+    objs[6].dyn             = true;
+    objs[6].act             = act_decvol;
+
+    x = rectbg.pos.x;
+    y += w + 16;
+
+    triarg->v1.x = x + (w >> 1);
+    triarg->v1.y = y + w;
+    triarg->v2.x = x + w;
+    triarg->v3.x = x;
+    triarg->v2.y = triarg->v3.y = y;
+    triarg->color               = MAROON;
+
+    objs_len = 7;
 }
 
 static void
@@ -217,11 +288,42 @@ draw (const struct obj_t *const obj)
     }
 }
 
+#define vsub(v1, v2)                                                          \
+    do {                                                                      \
+        v1.x -= v2.x;                                                         \
+        v1.y -= v2.y;                                                         \
+    } while (0);
+/**
+ * Cone apex at a.
+ * points a, b, and c must be ordered COUNTERCLOCKWISE
+ */
+static bool
+incone (Vector2 x, Vector2 a, Vector2 b, Vector2 c)
+{
+    vsub (b, a);
+    vsub (c, a);
+    vsub (x, a);
+    a.x = 0;
+    a.y = 0;
+    x.y *= -1;
+    b.y *= -1;
+    c.y *= -1;
+
+    // logdf ("x = (%f, %f)", x.x, x.y);
+    // logdf ("a = (%f, %f)", a.x, a.y);
+    // logdf ("b = (%f, %f)", b.x, b.y);
+    // logdf ("c = (%f, %f)", c.x, c.y);
+    // logdf ("<=0: %f\n", b.y * x.x - b.x * x.y);
+    // logdf (">=0: %f\n", c.y * x.x - c.x * x.y);
+    return (b.y * x.x - b.x * x.y <= 0) && (c.y * x.x - c.x * x.y >= 0);
+}
+#undef vsub
+
 static bool
 touches (Vector2 p, const struct obj_t *const obj)
 {
     float   a, b, dx, dy;
-    Vector2 u, v;
+    Vector2 u, v, x;
 
     switch (obj->typ) {
         case RL_LINE:
@@ -239,7 +341,11 @@ touches (Vector2 p, const struct obj_t *const obj)
             a = p.x - u.x;
             b = p.y - u.y;
             return a >= 0 && b >= 0 && a <= v.x && b <= v.y;
-        case RL_TRI: // TODO(M-Y-Sun): implement
+        case RL_TRI:
+            x = ((struct rl_tri_arg_t *)obj->params)->v1;
+            u = ((struct rl_tri_arg_t *)obj->params)->v2;
+            v = ((struct rl_tri_arg_t *)obj->params)->v3;
+            return incone (p, x, u, v) && incone (p, u, v, x);
             return false;
     }
 }
@@ -336,8 +442,7 @@ render (const strvec_t *sv)
     logdf ("Window dimensions: %d x %d", SCW, SCH);
     logi ("initialization finished, locking and signaling...");
 
-    int             pth_ret;
-    struct timespec retry_ts = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
+    int pth_ret;
 
     if ((pth_ret = pthread_mutex_lock (&render_ready_mx)) != 0) {
         logwf ("WARN: could not lock render_ready_mx. Error code %d: %s. "
@@ -461,21 +566,6 @@ render (const strvec_t *sv)
         }
         EndDrawing ();
     }
-
-    // set wclose
-
-    logi ("locking render_wclose_mx...");
-
-    while ((pth_ret = pthread_mutex_lock (&render_wclose_mx)) != 0) {
-        logwf ("WARN: lock render_wclose_mx failed with error "
-               "code %d: %s. Retrying...",
-               pth_ret, strerror (pth_ret));
-        nanosleep (&retry_ts, NULL);
-    }
-
-    wclose = false;
-
-    pthread_mutex_unlock (&render_wclose_mx);
 
     logi ("Closing raylib window...");
     CloseWindow ();

@@ -23,6 +23,9 @@ static const char *FILENAME = "main.c";
 
 static ANativeActivity *activity;
 
+static const struct timespec retry_ts
+    = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
+
 static void
 path_concat (char *dst, const char *restrict prefix, const char *restrict file)
 {
@@ -93,14 +96,19 @@ tfn_audio_play (void *args_vp)
 
     struct audio_play_args_t *args = args_vp;
     strvec_t *const           sv   = args->sv;
+    int                       pth_err;
 
     for (size_t i = 0; i < sv->siz; ++i) {
+        // get path
+
         logvf ("preparing to play `%s'", sv->ptr[i]);
 
         static char fn_in[MAX_PATH_LEN], fn_out[MAX_PATH_LEN];
         path_concat (fn_in, args->prefix, sv->ptr[i]);
         path_concat (fn_out, activity->internalDataPath,
                      NCAP_AUDIO_CACHE_FILE);
+
+        // get PCM
 
         logif ("converting `%s' to WAV file `%s'...", fn_in, fn_out);
 
@@ -110,10 +118,22 @@ tfn_audio_play (void *args_vp)
             goto exit;
         }
 
-        logd ("locking active track id mutex to update render...");
-        pthread_mutex_lock (&render_atrid_mx);
+        // update render
+
+        logd ("locking render_atrid_mx mutex to update render...");
+
+        while ((pth_err = pthread_mutex_lock (&render_atrid_mx)) != 0) {
+            logwf ("WARN: failed to lock render_atrid_mx. Error code %d: %s. "
+                   "Retrying...",
+                   pth_err, strerror (pth_err));
+            nanosleep (&retry_ts, NULL);
+        }
+
         render_atrid = i;
+
         pthread_mutex_unlock (&render_atrid_mx);
+
+        // play audio
 
         logi ("playing audio...");
 
@@ -122,11 +142,40 @@ tfn_audio_play (void *args_vp)
                    args->errstat);
             goto exit;
         }
+
+        // check for wclose
+
+        logi ("locking render_wclose_mx...");
+
+        while ((pth_ret = pthread_mutex_lock (&render_wclose_mx)) != 0) {
+            logwf ("WARN: could not lock render_wclose_mx. Error "
+                   "code %d: %s. Retrying...",
+                   pth_ret, strerror (pth_ret));
+            nanosleep (&retry_ts, NULL);
+        }
+
+        logdf ("%d", wclose);
+
+        if (wclose) {
+            logd ("wclose = true, exiting thread early...");
+            pthread_mutex_unlock (&render_wclose_mx);
+            break;
+        }
+
+        pthread_mutex_unlock (&render_wclose_mx);
+        logi ("unlocked render_wclose_mx");
     }
 
 exit:
-    pthread_mutex_lock (&render_atrid_mx);
+    while ((pth_err = pthread_mutex_lock (&render_atrid_mx)) != 0) {
+        logwf ("WARN: failed to lock render_atrid_mx. Error code %d: %s. "
+               "Retrying...",
+               pth_err, strerror (pth_err));
+        nanosleep (&retry_ts, NULL);
+    }
+
     render_atrid = -1;
+
     pthread_mutex_unlock (&render_atrid_mx);
     pthread_exit (NULL);
 }
@@ -134,6 +183,9 @@ exit:
 int
 main (void)
 {
+    audio_isplay = false;
+    wclose       = false;
+
     activity = GetAndroidApp ()->activity;
 
     static char cfgfile[MAX_PATH_LEN];
