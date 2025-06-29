@@ -49,7 +49,19 @@ init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
 static void
 sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len)
 {
-    const float scl = ncap_config.volume / 100.0f;
+    int   pth_ret;
+    float scl;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: failed to lock config_mx. Error code %d: %s. Dropping "
+               "frame...",
+               pth_ret, strerror (pth_ret));
+        scl = 0;
+    } else {
+        scl = ncap_config.volume / 100.0f;
+    }
+
+    pthread_mutex_unlock (&config_mx);
 
     for (; len--; buf += width) {
         switch (fmt) {

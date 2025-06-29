@@ -24,7 +24,7 @@ pthread_mutex_t render_atrid_mx = PTHREAD_MUTEX_INITIALIZER;
 int             render_atrid    = -1;
 
 static const int FPS_ACTIVE = 30;
-static const int FPS_STATIC = 5;
+static const int FPS_STATIC = 10;
 static const int FONTSIZ    = 48;
 static int       fps        = FPS_STATIC;
 
@@ -106,12 +106,48 @@ static void
 act_incvol (struct obj_t *this)
 {
     logi ("act_incvol called");
+
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: failed to lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return;
+    }
+
+    if (ncap_config.volume <= 90) {
+        ncap_config.volume += 10;
+        logvf ("setting volume to %d%%", ncap_config.volume);
+    } else {
+        logvf ("volume %d%% cannot be increased. Did nothing",
+               ncap_config.volume);
+    }
+
+    pthread_mutex_unlock (&config_mx);
 }
 
 static void
 act_decvol (struct obj_t *this)
 {
     logi ("act_decvol called");
+
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf ("WARN: failed to lock config_mx. Error code %d: %s", pth_ret,
+               strerror (pth_ret));
+        return;
+    }
+
+    if (ncap_config.volume >= 10) {
+        ncap_config.volume -= 10;
+        logvf ("setting volume to %d%%", ncap_config.volume);
+    } else {
+        logvf ("volume %d%% cannot be decreased. Did nothing",
+               ncap_config.volume);
+    }
+
+    pthread_mutex_unlock (&config_mx);
 }
 
 /**

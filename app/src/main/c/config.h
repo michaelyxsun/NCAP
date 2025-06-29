@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "logging.h"
+
 extern pthread_mutex_t config_mx;
 
 /**
@@ -52,18 +54,18 @@ extern int config_read (void);
 extern void config_write (void);
 
 /** synced with config_mx */
-#define config_upd(val, field)                                                \
+#define config_upd(val, field, pth_stat)                                      \
     do {                                                                      \
-        pthread_mutex_lock (&config_mx);                                      \
+        *(pth_stat) = pthread_mutex_lock (&config_mx);                        \
         fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
         fwrite (&(val), sizeof (val), 1, ncap_config_fp);                     \
         pthread_mutex_unlock (&config_mx);                                    \
     } while (0);
 
 /** synced with config_mx */
-#define config_read_val(val, field)                                           \
+#define config_read_val(val, field, pth_stat)                                 \
     do {                                                                      \
-        pthread_mutex_lock (&config_mx);                                      \
+        *(pth_stat) = pthread_mutex_lock (&config_mx);                        \
         fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
         fread (&(val), sizeof (val), 1, ncap_config_fp);                      \
         pthread_mutex_unlock (&config_mx);                                    \
