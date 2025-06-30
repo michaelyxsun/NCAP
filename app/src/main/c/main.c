@@ -191,7 +191,7 @@ main (void)
     static char cfgfile[MAX_PATH_LEN];
     path_concat (cfgfile, activity->internalDataPath, NCAP_CONFIG_FILE);
     logdf ("initializing config file `%s'", cfgfile);
-    remove (cfgfile);
+    // remove (cfgfile);
     switch (config_init (cfgfile)) {
         case CONFIG_INIT_CREAT:
             logi ("creating config...");
@@ -243,6 +243,10 @@ main (void)
     logdf ("audio_play thread joined with a status code of %d...",
            audio_args.errstat);
 
+    logi ("updating config...");
+    config_write ();
+
+    logi ("deinit strvec...");
     strvec_deinit (&sv);
 
     logi ("deinit config...");

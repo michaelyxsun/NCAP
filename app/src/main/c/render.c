@@ -25,7 +25,7 @@ int             render_atrid    = -1;
 
 static const int FPS_ACTIVE = 30;
 static const int FPS_STATIC = 10;
-static const int FONTSIZ    = 48;
+static const int FONTSIZ    = 60;
 static int       fps        = FPS_STATIC;
 
 static const struct timespec retry_ts
@@ -107,7 +107,8 @@ act_incvol (struct obj_t *this)
 {
     logi ("act_incvol called");
 
-    int pth_ret;
+    struct rl_text_arg_t *const linkpar = this->link->params;
+    int                         pth_ret;
 
     if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
         logwf ("WARN: failed to lock config_mx. Error code %d: %s", pth_ret,
@@ -123,6 +124,8 @@ act_incvol (struct obj_t *this)
                ncap_config.volume);
     }
 
+    snprintf (linkpar->str, 5, "%hhu%%", ncap_config.volume);
+
     pthread_mutex_unlock (&config_mx);
 }
 
@@ -131,7 +134,8 @@ act_decvol (struct obj_t *this)
 {
     logi ("act_decvol called");
 
-    int pth_ret;
+    struct rl_text_arg_t *const linkpar = this->link->params;
+    int                         pth_ret;
 
     if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
         logwf ("WARN: failed to lock config_mx. Error code %d: %s", pth_ret,
@@ -146,6 +150,8 @@ act_decvol (struct obj_t *this)
         logvf ("volume %d%% cannot be decreased. Did nothing",
                ncap_config.volume);
     }
+
+    snprintf (linkpar->str, 5, "%hhu%%", ncap_config.volume);
 
     pthread_mutex_unlock (&config_mx);
 }
@@ -163,13 +169,11 @@ static struct rl_rect_arg_t rectbg;
 static void
 init_objs (const int SCW, const int SCH)
 {
-    static char           buf_[OBJ_BUF_SIZ];
-    char                 *buf = buf_;
-    int                   pos = 0;
     int                   x, y, w, h, pad, add;
     struct rl_text_arg_t *textarg;
     struct rl_rect_arg_t *rectarg;
     struct rl_tri_arg_t  *triarg;
+    int                   pth_ret;
 
     // rectangle background
 
@@ -178,9 +182,9 @@ init_objs (const int SCW, const int SCH)
     objs[0].dyn              = false;
 
     w = rectarg->siz.x = SCW * 0.8;
-    h = rectarg->siz.y = SCH * 0.5;
+    h = rectarg->siz.y = SCH * 0.4;
     rectarg->pos.x     = (SCW - w) >> 1;
-    rectarg->pos.y     = (SCH - h) >> 1;
+    rectarg->pos.y     = ((SCH - h) >> 1) - 200;
     rectarg->color     = DARKGRAY;
 
     // close text
@@ -225,7 +229,6 @@ init_objs (const int SCW, const int SCH)
     h                          = textarg->fsiz;
     x = textarg->x = (SCW - w) >> 1;
     y = textarg->y = rectbg.pos.y - h - 30;
-    printf ("y: %d\n", y);
     textarg->color = WHITE;
 
     // play/pause button background (tappable)
@@ -250,8 +253,9 @@ init_objs (const int SCW, const int SCH)
     objs[5].typ             = RL_TRI;
     objs[5].dyn             = true;
     objs[5].act             = act_incvol;
+    objs[5].link            = &objs[7];
 
-    w = 80;
+    w = 160;
     x = rectbg.pos.x;
     y = rectbg.pos.y + rectbg.siz.y + 16;
 
@@ -269,6 +273,7 @@ init_objs (const int SCW, const int SCH)
     objs[6].typ             = RL_TRI;
     objs[6].dyn             = true;
     objs[6].act             = act_decvol;
+    objs[6].link            = &objs[7];
 
     x = rectbg.pos.x;
     y += w + 16;
@@ -280,7 +285,35 @@ init_objs (const int SCW, const int SCH)
     triarg->v2.y = triarg->v3.y = y;
     triarg->color               = MAROON;
 
-    objs_len = 7;
+    y += w;
+
+    static struct rl_text_arg_t objs7;
+    textarg = objs[7].params = &objs7;
+    objs[7].typ              = RL_TEXT;
+    objs[7].dyn              = false;
+
+    static char vol_str[5];
+
+    while ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
+        logwf (
+            "WARN: could not lock config_mx. Error code %d: %s. Retrying...",
+            pth_ret, strerror (pth_ret));
+        nanosleep (&retry_ts, NULL);
+    }
+
+    snprintf (vol_str, sizeof vol_str, "%hhu%%", ncap_config.volume);
+
+    pthread_mutex_unlock (&config_mx);
+
+    textarg->str   = vol_str;
+    textarg->fsiz  = FONTSIZ + 10;
+    w              = MeasureText ("100%", textarg->fsiz);
+    h              = textarg->fsiz;
+    textarg->x     = x;
+    textarg->y     = y + 32;
+    textarg->color = BLACK;
+
+    objs_len = 8;
 }
 
 static void
