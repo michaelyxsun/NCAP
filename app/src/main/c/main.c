@@ -126,6 +126,14 @@ tfn_audio_play (void *args_vp)
             nanosleep (&retry_ts, NULL);
         }
 
+        // set current track number
+
+        do {
+            config_set (i, cur_track, pth_err);
+            logdf ("config_set returned status %d: %s", pth_err,
+                   strerror (pth_err));
+        } while (pth_err != 0);
+
         // play audio
 
         logi ("playing audio...");

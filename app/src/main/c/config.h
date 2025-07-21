@@ -54,21 +54,23 @@ extern int config_read (void);
 extern void config_write (void);
 
 /** synced with config_mx */
-#define config_upd(val, field, pth_stat)                                      \
+#define config_get(val, field, pth_stat)                                      \
     do {                                                                      \
-        *(pth_stat) = pthread_mutex_lock (&config_mx);                        \
-        fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
-        fwrite (&(val), sizeof (val), 1, ncap_config_fp);                     \
-        pthread_mutex_unlock (&config_mx);                                    \
+        (pth_stat) = pthread_mutex_lock (&config_mx);                         \
+        if ((pth_stat) == 0) {                                                \
+            (val) = ncap_config.field;                                        \
+            pthread_mutex_unlock (&config_mx);                                \
+        }                                                                     \
     } while (0);
 
 /** synced with config_mx */
-#define config_read_val(val, field, pth_stat)                                 \
+#define config_set(val, field, pth_stat)                                      \
     do {                                                                      \
-        *(pth_stat) = pthread_mutex_lock (&config_mx);                        \
-        fseek (fp, offsetof (struct config_t, field), SEEK_SET);              \
-        fread (&(val), sizeof (val), 1, ncap_config_fp);                      \
-        pthread_mutex_unlock (&config_mx);                                    \
+        (pth_stat) = pthread_mutex_lock (&config_mx);                         \
+        if ((pth_stat) == 0) {                                                \
+            ncap_config.field = (val);                                        \
+            pthread_mutex_unlock (&config_mx);                                \
+        }                                                                     \
     } while (0);
 
 extern void config_logdump (void);

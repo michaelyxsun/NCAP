@@ -98,23 +98,27 @@ act_incvol (struct obj_t *this)
     struct rl_text_arg_t *const linkpar = this->link->params;
     int                         pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: failed to lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
+    uint8_t vol;
+    config_get (vol, volume, pth_ret);
+
+    if (pth_ret != 0) {
+        logwf ("WARN: config_get failed with exit code %d: %s. aborting...",
+               pth_ret, strerror (pth_ret));
         return;
     }
 
-    if (ncap_config.volume <= 90) {
-        ncap_config.volume += 10;
-        logvf ("setting volume to %d%%", ncap_config.volume);
-    } else {
-        logvf ("volume %d%% cannot be increased. Did nothing",
-               ncap_config.volume);
+    if (vol <= 90) {
+        config_set (vol += 10, volume, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf (
+                "WARN: config_set failed with exit code %d: %s. aborting...",
+                pth_ret, strerror (pth_ret));
+            return;
+        }
+
+        snprintf (linkpar->str, 5, "%hhu%%", vol);
     }
-
-    snprintf (linkpar->str, 5, "%hhu%%", ncap_config.volume);
-
-    pthread_mutex_unlock (&config_mx);
 }
 
 static void
@@ -125,23 +129,27 @@ act_decvol (struct obj_t *this)
     struct rl_text_arg_t *const linkpar = this->link->params;
     int                         pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: failed to lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
+    uint8_t vol;
+    config_get (vol, volume, pth_ret);
+
+    if (pth_ret != 0) {
+        logwf ("WARN: config_get failed with exit code %d: %s. aborting...",
+               pth_ret, strerror (pth_ret));
         return;
     }
 
-    if (ncap_config.volume >= 10) {
-        ncap_config.volume -= 10;
-        logvf ("setting volume to %d%%", ncap_config.volume);
-    } else {
-        logvf ("volume %d%% cannot be decreased. Did nothing",
-               ncap_config.volume);
+    if (vol >= 10) {
+        config_set (vol -= 10, volume, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf (
+                "WARN: config_set failed with exit code %d: %s. aborting...",
+                pth_ret, strerror (pth_ret));
+            return;
+        }
+
+        snprintf (linkpar->str, 5, "%hhu%%", vol);
     }
-
-    snprintf (linkpar->str, 5, "%hhu%%", ncap_config.volume);
-
-    pthread_mutex_unlock (&config_mx);
 }
 
 /**
@@ -282,16 +290,14 @@ init_objs (const int SCW, const int SCH)
 
     static char vol_str[5];
 
-    while ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf (
-            "WARN: could not lock config_mx. Error code %d: %s. Retrying...",
-            pth_ret, strerror (pth_ret));
-        nanosleep (&retry_ts, NULL);
-    }
+    uint8_t vol;
 
-    snprintf (vol_str, sizeof vol_str, "%hhu%%", ncap_config.volume);
+    do {
+        config_get (vol, volume, pth_ret);
+        logdf ("config_get returned code %d: %s", pth_ret, strerror (pth_ret));
+    } while (pth_ret != 0);
 
-    pthread_mutex_unlock (&config_mx);
+    snprintf (vol_str, sizeof vol_str, "%hhu%%", vol);
 
     textarg->str   = vol_str;
     textarg->fsiz  = FONTSIZ + 10;
