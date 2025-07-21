@@ -643,6 +643,10 @@ render_close (void)
 
     pthread_mutex_unlock (&render_wclose_mx);
 
+    // reset play/pause text
+
+    memcpy (((struct rl_text_arg_t *)objs[4].params)->str, " play", 6);
+
     return 0;
 }
 

@@ -60,6 +60,7 @@ extern int libav_cvt_cwav (const char *fn_in, const char *fn_out);
 
 extern int audio_play (const char *fn);
 
+/** NOT THREAD SAFE */
 extern void audio_init (void);
 
 extern bool audio_isplaying (void);

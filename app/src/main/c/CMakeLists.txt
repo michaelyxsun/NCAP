@@ -63,7 +63,7 @@ set(CMAKE_SHARED_LINKER_FLAGS
 add_library(
   ${CMAKE_PROJECT_NAME} SHARED
   # List C/C++ source files with relative paths to this CMakeLists.txt.
-  main.c config.c render.c aaudio_bind.c libav_bind.c strvec.c)
+  main.c config.c render.c audio.c libav_bind.c strvec.c)
 
 # Specifies libraries CMake should link to your target library. You can link
 # libraries from various origins, such as libraries defined in this build

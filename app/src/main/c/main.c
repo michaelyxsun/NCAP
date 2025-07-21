@@ -97,7 +97,17 @@ tfn_audio_play (void *args_vp)
     strvec_t *const           sv   = args->sv;
     int                       pth_err;
 
-    for (size_t i = 0; i < sv->siz; ++i) {
+    size_t i;
+    config_get (i, cur_track, pth_err);
+
+    if (pth_err != 0) {
+        logwf ("WARN: config_get failed with error code %d: %s. defaulting "
+               "cur_track to 0...",
+               pth_err, strerror (pth_err));
+        i = 0;
+    }
+
+    for (; i < sv->siz; ++i) {
         // get path
 
         logvf ("preparing to play `%s'", sv->ptr[i]);
@@ -152,6 +162,14 @@ tfn_audio_play (void *args_vp)
             logd ("wclose = true, exiting thread early...");
             break;
         }
+    }
+
+    if (i == sv->siz) {
+        do {
+            config_set (0, cur_track, pth_err);
+            logdf ("config_set returned status %d: %s", pth_err,
+                   strerror (pth_err));
+        } while (pth_err != 0);
     }
 
 exit:
