@@ -1,4 +1,5 @@
 #include "aaudio_bind.c"
+#include "render.h"
 
 void
 audio_init (void)
@@ -44,6 +45,8 @@ audio_pause (void)
     pth_ret      = pthread_cond_signal (&audio_cv);
 
     pthread_mutex_unlock (&audio_mx);
+
+    render_sync_playback_button ();
 
     return pth_ret;
 }

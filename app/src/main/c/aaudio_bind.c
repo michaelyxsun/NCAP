@@ -11,7 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// #define DEBUG_TIMED
+
+#ifdef DEBUG_TIMED
 #include <time.h>
+#endif
 
 #include <aaudio/AAudio.h>
 
@@ -195,15 +200,24 @@ audio_play (const char *fn)
     void        *buf         = malloc (buflen * PCM_DATA_WIDTH);
     int32_t      prev_ur_cnt = 0;
 
+#ifdef DEBUG_TIMED
     const time_t timer_start = time (NULL);
     const time_t dur         = 5;
+#endif
 
     logi ("Stream started. Playing audio...");
 
     int pth_err;
     int ret = NCAP_OK;
 
-    while (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur) {
+#ifdef DEBUG_TIMED
+#define AUDIO_STOP_COND                                                       \
+    (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur)
+#else
+#define AUDIO_STOP_COND (res >= AAUDIO_OK && !feof (fp))
+#endif
+
+    while (AUDIO_STOP_COND) {
         // check for interrupt
 
         if ((pth_err = pthread_mutex_lock (&audio_int_mx)) != 0) {
@@ -275,8 +289,12 @@ audio_play (const char *fn)
     free (buf);
     fclose (fp);
 
+#ifdef DEBUG_TIMED
     logif ("Audio play ended after %u secs. Stopping stream...",
            (uint32_t)dur);
+#else
+    logi ("audio play ended");
+#endif
 
     AAudioStream_requestStop (stream);
     state = AAUDIO_STREAM_STATE_UNINITIALIZED;

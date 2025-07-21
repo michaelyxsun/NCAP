@@ -193,6 +193,7 @@ static struct obj_t objs[MAX_OBJS];
 static size_t       objs_len;
 
 static struct rl_rect_arg_t rectbg;
+static struct obj_t        *playback_obj;
 
 static void
 init_objs (const int SCW, const int SCH)
@@ -269,6 +270,7 @@ init_objs (const int SCW, const int SCH)
     objs[3].dyn              = true;
     objs[3].act              = act_toggleplay;
     objs[3].link             = &objs[4];
+    playback_obj             = &objs[3];
 
     rectarg->siz.x = w + 64;
     rectarg->siz.y = h + 32;
@@ -371,7 +373,7 @@ init_objs (const int SCW, const int SCH)
     objs[8].dyn              = false;
 
     textarg->str   = "repeat";
-    textarg->fsiz  = FONTSIZ;
+    textarg->fsiz  = FONTSIZ + 10;
     textarg->x     = x + w + 32;
     textarg->y     = y;
     textarg->color = BLACK;
@@ -738,7 +740,8 @@ render_close (void)
 
     // reset play/pause text
 
-    memcpy (((struct rl_text_arg_t *)objs[4].params)->str, " play", 6);
+    memcpy (((struct rl_text_arg_t *)playback_obj->link->params)->str, " play",
+            6);
 
     return 0;
 }
@@ -795,4 +798,18 @@ render_waitready (void)
     pthread_mutex_unlock (&render_ready_mx);
 
     return 0;
+}
+
+void
+render_sync_playback_button (void)
+{
+    if (audio_isplaying ()) {
+        memcpy (((struct rl_text_arg_t *)playback_obj->link->params)->str,
+                "pause", 6);
+        ((struct rl_rect_arg_t *)playback_obj->params)->color = MAROON;
+    } else {
+        memcpy (((struct rl_text_arg_t *)playback_obj->link->params)->str,
+                " play", 6);
+        ((struct rl_rect_arg_t *)playback_obj->params)->color = DARKGREEN;
+    }
 }

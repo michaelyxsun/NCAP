@@ -77,4 +77,6 @@ extern bool render_closing_nb (void);
 
 extern int render_waitready (void);
 
+extern void render_sync_playback_button (void);
+
 #endif // !RENDER_H

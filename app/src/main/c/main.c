@@ -101,7 +101,7 @@ tfn_audio_play (void *args_vp)
 
     const size_t ntracks = sv->siz;
 
-    do {
+    while (true) {
         // set current track number
         do {
             config_get (i, cur_track, pth_err);
@@ -155,22 +155,21 @@ tfn_audio_play (void *args_vp)
         } while (pth_err != 0);
 
         if (i == ntracks) {
+            do {
+                config_set (i = 0, cur_track, pth_err);
+            } while (pth_err != 0);
+
             uint8_t isrepeat;
             config_get (isrepeat, isrepeat, pth_err);
 
-            if (pth_err == 0 && isrepeat) {
-                do {
-                    config_set (i = 0, cur_track, pth_err);
-                } while (pth_err != 0);
-            }
+            if (!(pth_err == 0 && isrepeat))
+                audio_pause ();
         }
-    } while (i < ntracks);
+    }
 
     if (i == ntracks) {
         do {
             config_set (0, cur_track, pth_err);
-            logdf ("config_set returned status %d: %s", pth_err,
-                   strerror (pth_err));
         } while (pth_err != 0);
     }
 
