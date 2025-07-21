@@ -197,7 +197,7 @@ main (void)
             ncap_config.isrepeat        = 0; // false
             ncap_config.isshuffle       = 0; // false
             ncap_config.volume          = 100;
-            ncap_config.track_path      = "/sdcard/Music/NCAP-share";
+            ncap_config.track_path      = NCAP_DEFAULT_TRACK_PATH;
             ncap_config.track_path_len  = strlen (ncap_config.track_path) + 1;
             logi ("writing to config...");
             config_write ();

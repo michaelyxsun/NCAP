@@ -5,6 +5,8 @@
 
 #define APPID "com.msun.ncap"
 
+#define NCAP_DEFAULT_TRACK_PATH "/sdcard/Music/NCAP-share"
+
 #define NCAP_AUDIO_CACHE_FILE     "audio.wav.custom"
 #define NCAP_AUDIO_CACHE_FILE_LEN 16
 
