@@ -90,6 +90,9 @@ pthread_mutex_t audio_mx     = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t  audio_cv     = PTHREAD_COND_INITIALIZER;
 bool            audio_isplay = false;
 
+pthread_mutex_t audio_int_mx = PTHREAD_MUTEX_INITIALIZER;
+bool            audio_int    = false;
+
 int
 audio_play (const char *fn)
 {
@@ -197,16 +200,34 @@ audio_play (const char *fn)
 
     logi ("Stream started. Playing audio...");
 
-    int pthread_err;
+    int pth_err;
+    int ret = NCAP_OK;
 
     while (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur) {
+        // check for interrupt
+
+        if ((pth_err = pthread_mutex_lock (&audio_int_mx)) != 0) {
+            logef ("ERROR: pthread_mutex_lock on audio_mx failed with error "
+                   "code %d: %s. stopping playback...",
+                   pth_err, strerror (pth_err));
+            break;
+        }
+
+        if (audio_int) {
+            audio_int = false;
+            ret       = NCAP_INT;
+            pthread_mutex_unlock (&audio_int_mx);
+            break;
+        }
+
+        pthread_mutex_unlock (&audio_int_mx);
+
         // check for pause (playback control)
 
-        if ((pthread_err = pthread_mutex_lock (&audio_mx)) != 0) {
+        if ((pth_err = pthread_mutex_lock (&audio_mx)) != 0) {
             logef ("ERROR: pthread_mutex_lock on audio_mx failed with error "
-                   "code %d: "
-                   "%s. stopping playback...",
-                   pthread_err, strerror (pthread_err));
+                   "code %d: %s. stopping playback...",
+                   pth_err, strerror (pth_err));
             break;
         }
 
@@ -276,5 +297,5 @@ audio_play (const char *fn)
 
     logi ("AAudio stream closed.");
 
-    return NCAP_OK;
+    return ret;
 }

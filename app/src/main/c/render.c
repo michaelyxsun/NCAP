@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "audio.h"
+#include "config.h"
 #include "logging.h"
 #include "render.h"
 #include "strvec.h"
@@ -40,6 +41,8 @@ render_init (void)
 static void
 act_wclose (struct obj_t *this)
 {
+    logd ("act_wclose called");
+
     int ret;
 
     if ((ret = render_close ()) != 0) {
@@ -60,7 +63,7 @@ act_wclose (struct obj_t *this)
 static void
 act_toggleplay (struct obj_t *this)
 {
-    logi ("act_toggleplay signaled");
+    logd ("act_toggleplay called");
 
     struct rl_rect_arg_t *const par     = this->params;
     struct rl_text_arg_t *const linkpar = this->link->params;
@@ -93,7 +96,7 @@ act_toggleplay (struct obj_t *this)
 static void
 act_incvol (struct obj_t *this)
 {
-    logi ("act_incvol called");
+    logd ("act_incvol called");
 
     struct rl_text_arg_t *const linkpar = this->link->params;
     int                         pth_ret;
@@ -124,7 +127,7 @@ act_incvol (struct obj_t *this)
 static void
 act_decvol (struct obj_t *this)
 {
-    logi ("act_decvol called");
+    logd ("act_decvol called");
 
     struct rl_text_arg_t *const linkpar = this->link->params;
     int                         pth_ret;
@@ -149,6 +152,35 @@ act_decvol (struct obj_t *this)
         }
 
         snprintf (linkpar->str, 5, "%hhu%%", vol);
+    }
+}
+
+static void
+act_togglerepeat (struct obj_t *this)
+{
+    logd ("act_togglerepeat called");
+
+    struct rl_rect_arg_t *par = this->params;
+    int                   pth_ret;
+
+    if (memcmp (&par->color, &(GRAY), sizeof (GRAY)) == 0) {
+        config_set (1, isrepeat, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf ("WARN: config_set failed with error code %d: %s", pth_ret,
+                   strerror (pth_ret));
+        } else {
+            par->color = GREEN;
+        }
+    } else {
+        config_set (0, isrepeat, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf ("WARN: config_set failed with error code %d: %s", pth_ret,
+                   strerror (pth_ret));
+        } else {
+            par->color = GRAY;
+        }
     }
 }
 
@@ -178,9 +210,9 @@ init_objs (const int SCW, const int SCH)
     objs[0].dyn              = false;
 
     w = rectarg->siz.x = SCW * 0.8;
-    h = rectarg->siz.y = SCH * 0.4;
+    h = rectarg->siz.y = SCH * 0.5;
     rectarg->pos.x     = (SCW - w) >> 1;
-    rectarg->pos.y     = ((SCH - h) >> 1) - 200;
+    rectarg->pos.y     = ((SCH - h) >> 1) - 150;
     rectarg->color     = DARKGRAY;
 
     // close text
@@ -212,6 +244,8 @@ init_objs (const int SCW, const int SCH)
     rectarg->pos.x = x - 32;
     rectarg->pos.y = y - 16;
     rectarg->color = RED;
+
+    // play/pause text
 
     static struct rl_text_arg_t objs4;
     textarg = objs[4].params = &objs4;
@@ -262,6 +296,9 @@ init_objs (const int SCW, const int SCH)
     triarg->v3.y                = y;
     triarg->color               = MAROON;
 
+    int y_ = y;
+    int w_ = w;
+
     // volume down (tappable)
 
     static struct rl_tri_arg_t objs6;
@@ -282,6 +319,8 @@ init_objs (const int SCW, const int SCH)
     triarg->color               = MAROON;
 
     y += w;
+
+    // volume text
 
     static struct rl_text_arg_t objs7;
     textarg = objs[7].params = &objs7;
@@ -307,7 +346,37 @@ init_objs (const int SCW, const int SCH)
     textarg->y     = y + 32;
     textarg->color = BLACK;
 
-    objs_len = 8;
+    // repeat toggle
+
+    static struct rl_rect_arg_t objs9;
+    rectarg = objs[9].params = &objs9;
+    objs[9].typ              = RL_RECT;
+    objs[9].dyn              = true;
+    objs[9].act              = act_togglerepeat;
+
+    w = rectarg->siz.x = rectarg->siz.y = FONTSIZ;
+    x = rectarg->pos.x = x + w_ + 64;
+    y = rectarg->pos.y = y_;
+
+    uint8_t isrepeat;
+    config_get (isrepeat, isrepeat, pth_ret);
+
+    rectarg->color = pth_ret == 0 && isrepeat ? GREEN : GRAY;
+
+    // repeat label
+
+    static struct rl_text_arg_t objs8;
+    textarg = objs[8].params = &objs8;
+    objs[8].typ              = RL_TEXT;
+    objs[8].dyn              = false;
+
+    textarg->str   = "repeat";
+    textarg->fsiz  = FONTSIZ;
+    textarg->x     = x + w + 32;
+    textarg->y     = y;
+    textarg->color = BLACK;
+
+    objs_len = 10;
 }
 
 static void
@@ -372,12 +441,6 @@ incone (Vector2 x, Vector2 a, Vector2 b, Vector2 c)
     b.y *= -1;
     c.y *= -1;
 
-    // logdf ("x = (%f, %f)", x.x, x.y);
-    // logdf ("a = (%f, %f)", a.x, a.y);
-    // logdf ("b = (%f, %f)", b.x, b.y);
-    // logdf ("c = (%f, %f)", c.x, c.y);
-    // logdf ("<=0: %f\n", b.y * x.x - b.x * x.y);
-    // logdf (">=0: %f\n", c.y * x.x - c.x * x.y);
     return (b.y * x.x - b.x * x.y <= 0) && (c.y * x.x - c.x * x.y >= 0);
 }
 #undef vsub
@@ -464,6 +527,14 @@ init_draw_tracks_params (int pad, int fontsiz)
     return params;
 }
 
+/**
+ * DO NOT CALL track_objs[i].act, stores an index
+ */
+static struct {
+    int       id;
+    Rectangle rect;
+} track_rects[MAX_OBJS];
+
 static void
 draw_tracks (const char *const *tracks, const size_t len,
              const struct draw_tracks_params_t *par)
@@ -471,11 +542,21 @@ draw_tracks (const char *const *tracks, const size_t len,
     Vector2 rectpos = par->rectpos;
     int     pth_ret;
 
+    int cur_track = -1;
+    config_get (cur_track, cur_track, pth_ret);
+
     for (size_t i = 0; i < len; ++i) {
         DrawRectangleV (rectpos, par->rectsiz,
-                        i == render_get_active_track_id () ? YELLOW : WHITE);
+                        i == cur_track ? YELLOW : WHITE);
         DrawText (tracks[i], rectpos.x + par->txtpad, rectpos.y + par->txtpad,
                   par->fontsiz, BLACK);
+
+        track_rects[i].rect.x      = rectpos.x;
+        track_rects[i].rect.y      = rectpos.y;
+        track_rects[i].rect.width  = par->rectsiz.x;
+        track_rects[i].rect.height = par->rectsiz.y;
+        track_rects[i].id          = i;
+
         rectpos.y += par->rectsiz.y + par->pad; // par->pad is spacing
     }
 }
@@ -483,7 +564,7 @@ draw_tracks (const char *const *tracks, const size_t len,
 void
 render (const strvec_t *sv)
 {
-    InitWindow (0, 0, "com.msun.ncap");
+    InitWindow (0, 0, APPID);
     SetTargetFPS (fps);
 
     logdf ("Set target FPS to %d", fps);
@@ -528,9 +609,11 @@ render (const strvec_t *sv)
     const struct draw_tracks_params_t draw_tracks_par
         = init_draw_tracks_params (10, FONTSIZ);
 
-    char **tracks_trunc = malloc (sv->siz * sizeof (char *));
+    const size_t ntracks = sv->siz;
 
-    for (size_t i = 0; i < sv->siz; ++i) {
+    char **tracks_trunc = malloc (ntracks * sizeof (char *));
+
+    for (size_t i = 0; i < ntracks; ++i) {
         const size_t pos = truncpos (
             sv->ptr[i], strlen (sv->ptr[i]) + 1, draw_tracks_par.fontsiz,
             draw_tracks_par.rectsiz.x - (draw_tracks_par.txtpad << 1));
@@ -558,7 +641,7 @@ render (const strvec_t *sv)
                 for (size_t i = 0; i < objs_len; ++i)
                     draw (&objs[i]);
 
-                draw_tracks (tracks_trunc, sv->siz, &draw_tracks_par);
+                draw_tracks (tracks_trunc, ntracks, &draw_tracks_par);
             }
             EndDrawing ();
             continue;
@@ -583,6 +666,16 @@ render (const strvec_t *sv)
                 if (touches (ptpos, &objs[i])) {
                     objs[i].act (&objs[i]);
                     logdf ("act called for object %zu", i);
+                }
+            }
+
+            for (size_t i = 0; i < ntracks; ++i) {
+                float a = ptpos.x - track_rects[i].rect.x;
+                float b = ptpos.y - track_rects[i].rect.y;
+                if (a >= 0 && b >= 0 && a <= track_rects[i].rect.width
+                    && b <= track_rects[i].rect.height) {
+                    config_set (track_rects[i].id, cur_track, pth_ret);
+                    audio_interrupt ();
                 }
             }
         }
@@ -702,35 +795,4 @@ render_waitready (void)
     pthread_mutex_unlock (&render_ready_mx);
 
     return 0;
-}
-
-int
-render_set_active_track_id (int id)
-{
-    int pth_err;
-
-    if ((pth_err = pthread_mutex_lock (&render_atrid_mx)) != 0)
-        return pth_err;
-
-    render_atrid = id;
-
-    pthread_mutex_unlock (&render_atrid_mx);
-
-    return 0;
-}
-
-int
-render_get_active_track_id (void)
-{
-    int ret;
-
-    if ((ret = pthread_mutex_lock (&render_atrid_mx)) != 0) {
-        logwf ("WARN: could not lock render_atrid_mx. Error code %d: %s", ret,
-               strerror (ret));
-        return -1;
-    }
-
-    ret = render_atrid;
-    pthread_mutex_unlock (&render_atrid_mx);
-    return ret;
 }

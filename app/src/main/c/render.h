@@ -77,8 +77,4 @@ extern bool render_closing_nb (void);
 
 extern int render_waitready (void);
 
-extern int render_set_active_track_id (int id);
-
-extern int render_get_active_track_id (void);
-
 #endif // !RENDER_H

@@ -98,16 +98,17 @@ tfn_audio_play (void *args_vp)
     int                       pth_err;
 
     size_t i;
-    config_get (i, cur_track, pth_err);
 
-    if (pth_err != 0) {
-        logwf ("WARN: config_get failed with error code %d: %s. defaulting "
-               "cur_track to 0...",
-               pth_err, strerror (pth_err));
-        i = 0;
-    }
+    const size_t ntracks = sv->siz;
 
-    for (; i < sv->siz; ++i) {
+    do {
+        // set current track number
+        do {
+            config_get (i, cur_track, pth_err);
+        } while (pth_err != 0);
+
+        logdf ("got i=%zu", i);
+
         // get path
 
         logvf ("preparing to play `%s'", sv->ptr[i]);
@@ -127,30 +128,11 @@ tfn_audio_play (void *args_vp)
             goto exit;
         }
 
-        // update render
-
-        logdf ("setting active track id to %zu", i);
-
-        while ((pth_err = render_set_active_track_id (i)) != 0) {
-            logwf ("WARN: render_set_active_track_id failed with error code "
-                   "%d: %s. Retrying...",
-                   pth_err, strerror (pth_err));
-            nanosleep (&retry_ts, NULL);
-        }
-
-        // set current track number
-
-        do {
-            config_set (i, cur_track, pth_err);
-            logdf ("config_set returned status %d: %s", pth_err,
-                   strerror (pth_err));
-        } while (pth_err != 0);
-
         // play audio
 
         logi ("playing audio...");
 
-        if ((args->errstat = audio_play (fn_out)) != NCAP_OK) {
+        if ((args->errstat = audio_play (fn_out)) < NCAP_OK) {
             logef ("ERROR: libav_cvt_wav failed with code %d. aborting...\n",
                    args->errstat);
             goto exit;
@@ -162,9 +144,29 @@ tfn_audio_play (void *args_vp)
             logd ("wclose = true, exiting thread early...");
             break;
         }
-    }
 
-    if (i == sv->siz) {
+        if (args->errstat == NCAP_INT)
+            continue;
+
+        // increment current track number
+
+        do {
+            config_set (++i, cur_track, pth_err);
+        } while (pth_err != 0);
+
+        if (i == ntracks) {
+            uint8_t isrepeat;
+            config_get (isrepeat, isrepeat, pth_err);
+
+            if (pth_err == 0 && isrepeat) {
+                do {
+                    config_set (i = 0, cur_track, pth_err);
+                } while (pth_err != 0);
+            }
+        }
+    } while (i < ntracks);
+
+    if (i == ntracks) {
         do {
             config_set (0, cur_track, pth_err);
             logdf ("config_set returned status %d: %s", pth_err,
@@ -173,7 +175,6 @@ tfn_audio_play (void *args_vp)
     }
 
 exit:
-    render_set_active_track_id (-1);
     pthread_exit (NULL);
 }
 

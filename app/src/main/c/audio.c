@@ -47,3 +47,20 @@ audio_pause (void)
 
     return pth_ret;
 }
+
+int
+audio_interrupt (void)
+{
+    logv ("interrupting audio...");
+
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&audio_int_mx)) != 0)
+        return pth_ret;
+
+    audio_int = true;
+
+    pth_ret = pthread_mutex_unlock (&audio_int_mx);
+
+    return pth_ret;
+}

@@ -48,11 +48,12 @@ struct cwav_header_t {
     } data;
 };
 
+#define NCAP_INT    1
 #define NCAP_OK     0
-#define NCAP_EGEN   1
-#define NCAP_EALLOC 2
-#define NCAP_EIO    3
-#define NCAP_ENULL  4
+#define NCAP_EGEN   -1
+#define NCAP_EALLOC -2
+#define NCAP_EIO    -3
+#define NCAP_ENULL  -4
 
 // TODO(michaelyxsun): add err2str
 
@@ -68,5 +69,7 @@ extern bool audio_isplaying (void);
 extern int audio_resume (void);
 
 extern int audio_pause (void);
+
+extern int audio_interrupt (void);
 
 #endif // !AUDIO_H
