@@ -31,75 +31,63 @@ static int       fps        = FPS_STATIC;
 static const struct timespec retry_ts
     = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
 
+void
+render_init (void)
+{
+    wclose = false;
+}
+
 static void
 act_wclose (struct obj_t *this)
 {
-    int pth_ret;
+    int ret;
 
-    logd ("trylocking render_wclose_mx...");
-
-    if ((pth_ret = pthread_mutex_trylock (&render_wclose_mx)) != 0) {
-        logwf ("WARN: could not lock render_wclose_mx. Error "
-               "code %d: %s",
-               pth_ret, strerror (pth_ret));
-        return;
+    if ((ret = render_close ()) != 0) {
+        logwf (
+            "WARN: render_close failed with error code %d: %s. continuing...",
+            ret, strerror (ret));
     }
-
-    wclose = true;
-
-    pth_ret = pthread_mutex_unlock (&render_wclose_mx);
-    logd ("unlocked render_wclose_mx");
 
     // signal to interrupt aaudio hang
 
-    logi ("locking audio_mx to wake up aaudio_bind thread...");
-
-    while ((pth_ret = pthread_mutex_lock (&audio_mx)) != 0) {
-        logwf ("WARN: could not lock audio_mx. Error code %d: %s. Retrying...",
-               pth_ret, strerror (pth_ret));
+    while ((ret = audio_resume ()) != 0) {
+        logwf ("WARN: audio_resume failed with error code %d: %s. Retrying...",
+               ret, strerror (ret));
         nanosleep (&retry_ts, NULL);
     }
-
-    audio_isplay = true;
-    pth_ret      = pthread_cond_signal (&audio_cv);
-    logdf ("pthread_cond_signal returned error code %d: %s", pth_ret,
-           strerror (pth_ret));
-    pthread_mutex_unlock (&audio_mx);
-    logd ("unlocked audio_mx");
 }
 
 static void
 act_toggleplay (struct obj_t *this)
 {
     logi ("act_toggleplay signaled");
-    logdf ("audio_isplay: %d", audio_isplay);
 
     struct rl_rect_arg_t *const par     = this->params;
     struct rl_text_arg_t *const linkpar = this->link->params;
 
-    int pth_ret;
-    if ((pth_ret = pthread_mutex_trylock (&audio_mx)) != 0) {
-        logwf ("WARN: could not lock audio_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
-        return;
-    }
+    int aret;
 
-    if (audio_isplay) {
-        audio_isplay = false;
+    if (audio_isplaying ()) {
+        while ((aret = audio_pause ()) != 0) {
+            logwf (
+                "WARN: audio_pause failed with error code %d: %s. Retrying...",
+                aret, strerror (aret));
+            nanosleep (&retry_ts, NULL);
+        }
+
         memcpy (linkpar->str, " play", 6);
         par->color = DARKGREEN;
     } else {
-        audio_isplay = true;
+        while ((aret = audio_resume ()) != 0) {
+            logwf ("WARN: audio_resume failed with error code %d: %s. "
+                   "Retrying...",
+                   aret, strerror (aret));
+            nanosleep (&retry_ts, NULL);
+        }
+
         memcpy (linkpar->str, "pause", 6);
         par->color = MAROON;
-
-        logi ("signaling audio_cv to resume...");
-        pth_ret = pthread_cond_signal (&audio_cv);
-        logdf ("pthread_cond_signal returned error code %d: %s", pth_ret,
-               strerror (pth_ret));
     }
-
-    pthread_mutex_unlock (&audio_mx);
 }
 
 static void
@@ -477,21 +465,13 @@ draw_tracks (const char *const *tracks, const size_t len,
     Vector2 rectpos = par->rectpos;
     int     pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&render_atrid_mx)) != 0) {
-        logwf ("WARN: could not lock render_atrid_mx. Error code %d: %s",
-               pth_ret, strerror (pth_ret));
-        return;
-    }
-
     for (size_t i = 0; i < len; ++i) {
         DrawRectangleV (rectpos, par->rectsiz,
-                        i == render_atrid ? YELLOW : WHITE);
+                        i == render_get_active_track_id () ? YELLOW : WHITE);
         DrawText (tracks[i], rectpos.x + par->txtpad, rectpos.y + par->txtpad,
                   par->fontsiz, BLACK);
         rectpos.y += par->rectsiz.y + par->pad; // par->pad is spacing
     }
-
-    pthread_mutex_unlock (&render_atrid_mx);
 }
 
 void
@@ -643,4 +623,104 @@ render (const strvec_t *sv)
     for (size_t i = 0; i < sv->siz; ++i)
         free (tracks_trunc[i]);
     free (tracks_trunc);
+}
+
+int
+render_close (void)
+{
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&render_wclose_mx)) != 0)
+        return pth_ret;
+
+    wclose = true;
+
+    pthread_mutex_unlock (&render_wclose_mx);
+
+    return 0;
+}
+
+bool
+render_closing (void)
+{
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&render_wclose_mx)) != 0)
+        return false;
+
+    if (wclose) {
+        pthread_mutex_unlock (&render_wclose_mx);
+        return true;
+    }
+
+    pthread_mutex_unlock (&render_wclose_mx);
+    return false;
+}
+
+bool
+render_closing_nb (void)
+{
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_trylock (&render_wclose_mx)) == 0) {
+        if (wclose) {
+            pthread_mutex_unlock (&render_wclose_mx);
+            return true;
+        }
+
+        pthread_mutex_unlock (&render_wclose_mx);
+    } else {
+        logwf ("WARN: could not acquire render_wclose_mx. Error "
+               "code %d: %s. ignoring...",
+               pth_ret, strerror (pth_ret));
+    }
+
+    return false;
+}
+
+int
+render_waitready (void)
+{
+    int pth_ret;
+
+    if ((pth_ret = pthread_mutex_lock (&render_ready_mx)) != 0)
+        return pth_ret;
+
+    while (!render_ready)
+        pthread_cond_wait (&render_ready_cv, &render_ready_mx);
+
+    pthread_mutex_unlock (&render_ready_mx);
+
+    return 0;
+}
+
+int
+render_set_active_track_id (int id)
+{
+    int pth_err;
+
+    if ((pth_err = pthread_mutex_lock (&render_atrid_mx)) != 0)
+        return pth_err;
+
+    render_atrid = id;
+
+    pthread_mutex_unlock (&render_atrid_mx);
+
+    return 0;
+}
+
+int
+render_get_active_track_id (void)
+{
+    int ret;
+
+    if ((ret = pthread_mutex_lock (&render_atrid_mx)) != 0) {
+        logwf ("WARN: could not lock render_atrid_mx. Error code %d: %s", ret,
+               strerror (ret));
+        return -1;
+    }
+
+    ret = render_atrid;
+    pthread_mutex_unlock (&render_atrid_mx);
+    return ret;
 }

@@ -79,18 +79,15 @@ struct audio_play_args_t {
 static void *
 tfn_audio_play (void *args_vp)
 {
-    int pth_ret;
+    int ret;
 
-    if ((pth_ret = pthread_mutex_lock (&render_ready_mx)) != 0) {
-        logwf ("WARN: could not lock render_ready_mx. Error code %d: %s",
-               pth_ret, strerror (pth_ret));
+    logd ("waiting for render ready...");
+
+    if ((ret = render_waitready ()) != 0) {
+        logwf ("WARN: render_waitready failed with error code %d: %s", ret,
+               strerror (ret));
         pthread_exit (NULL);
     }
-
-    while (!render_ready)
-        pthread_cond_wait (&render_ready_cv, &render_ready_mx);
-
-    pthread_mutex_unlock (&render_ready_mx);
 
     logi ("render_ready = true; audio_play thread proceeding");
 
@@ -120,18 +117,14 @@ tfn_audio_play (void *args_vp)
 
         // update render
 
-        logd ("locking render_atrid_mx mutex to update render...");
+        logdf ("setting active track id to %zu", i);
 
-        while ((pth_err = pthread_mutex_lock (&render_atrid_mx)) != 0) {
-            logwf ("WARN: failed to lock render_atrid_mx. Error code %d: %s. "
-                   "Retrying...",
+        while ((pth_err = render_set_active_track_id (i)) != 0) {
+            logwf ("WARN: render_set_active_track_id failed with error code "
+                   "%d: %s. Retrying...",
                    pth_err, strerror (pth_err));
             nanosleep (&retry_ts, NULL);
         }
-
-        render_atrid = i;
-
-        pthread_mutex_unlock (&render_atrid_mx);
 
         // play audio
 
@@ -145,46 +138,22 @@ tfn_audio_play (void *args_vp)
 
         // check for wclose
 
-        logi ("locking render_wclose_mx...");
-
-        while ((pth_ret = pthread_mutex_lock (&render_wclose_mx)) != 0) {
-            logwf ("WARN: could not lock render_wclose_mx. Error "
-                   "code %d: %s. Retrying...",
-                   pth_ret, strerror (pth_ret));
-            nanosleep (&retry_ts, NULL);
-        }
-
-        logdf ("%d", wclose);
-
-        if (wclose) {
+        if (render_closing ()) {
             logd ("wclose = true, exiting thread early...");
-            pthread_mutex_unlock (&render_wclose_mx);
             break;
         }
-
-        pthread_mutex_unlock (&render_wclose_mx);
-        logi ("unlocked render_wclose_mx");
     }
 
 exit:
-    while ((pth_err = pthread_mutex_lock (&render_atrid_mx)) != 0) {
-        logwf ("WARN: failed to lock render_atrid_mx. Error code %d: %s. "
-               "Retrying...",
-               pth_err, strerror (pth_err));
-        nanosleep (&retry_ts, NULL);
-    }
-
-    render_atrid = -1;
-
-    pthread_mutex_unlock (&render_atrid_mx);
+    render_set_active_track_id (-1);
     pthread_exit (NULL);
 }
 
 int
 main (void)
 {
-    audio_isplay = false;
-    wclose       = false;
+    audio_init ();
+    render_init ();
 
     activity = GetAndroidApp ()->activity;
 

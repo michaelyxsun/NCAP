@@ -54,14 +54,18 @@ struct cwav_header_t {
 #define NCAP_EIO    3
 #define NCAP_ENULL  4
 
-// TODO(M-Y-Sun): add err2str
-
-extern pthread_mutex_t audio_mx;
-extern pthread_cond_t  audio_cv;
-extern bool            audio_isplay;
+// TODO(michaelyxsun): add err2str
 
 extern int libav_cvt_cwav (const char *fn_in, const char *fn_out);
 
 extern int audio_play (const char *fn);
+
+extern void audio_init (void);
+
+extern bool audio_isplaying (void);
+
+extern int audio_resume (void);
+
+extern int audio_pause (void);
 
 #endif // !AUDIO_H

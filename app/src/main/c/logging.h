@@ -4,7 +4,6 @@
 #define LOGGING_H
 
 #include <android/log.h>
-#include <libavutil/error.h>
 
 #include "properties.h"
 

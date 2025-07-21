@@ -65,16 +65,20 @@ struct obj_t {
     struct obj_t *link;
 };
 
-extern pthread_mutex_t render_wclose_mx;
-extern bool            wclose;
-
-extern pthread_mutex_t render_ready_mx;
-extern pthread_cond_t  render_ready_cv;
-extern bool            render_ready;
-
-extern pthread_mutex_t render_atrid_mx;
-extern int             render_atrid;
+extern void render_init (void);
 
 extern void render (const strvec_t *sv);
+
+extern int render_close (void);
+
+extern bool render_closing (void);
+
+extern bool render_closing_nb (void);
+
+extern int render_waitready (void);
+
+extern int render_set_active_track_id (int id);
+
+extern int render_get_active_track_id (void);
 
 #endif // !RENDER_H
