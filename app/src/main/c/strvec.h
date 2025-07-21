@@ -38,4 +38,6 @@ extern void strvec_popb (strvec_t *this);
  */
 #define strvec_back(thisaddr) ((thisaddr)->ptr[(thisaddr)->siz - 1])
 
+extern void strvec_sort (strvec_t *this);
+
 #endif // !STRQUEUE_H

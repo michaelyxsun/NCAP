@@ -67,6 +67,8 @@ load_dir (strvec_t *sv, const char *path)
 
     logdf ("closed DIR pointer to path `%s'", path);
 
+    strvec_sort (sv);
+
     return 0;
 }
 

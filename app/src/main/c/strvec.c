@@ -60,3 +60,15 @@ strvec_popb (strvec_t *this)
     if (this->cap >= this->siz << 1)
         shrink (this)
 }
+
+static int
+cmp (const void *plhs, const void *prhs)
+{
+    return strcmp (*(char **)plhs, *(char **)prhs);
+}
+
+void
+strvec_sort (strvec_t *this)
+{
+    qsort (this->ptr, this->siz, sizeof this->ptr[0], cmp);
+}
