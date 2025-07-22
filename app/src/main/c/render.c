@@ -701,13 +701,12 @@ render (const strvec_t *sv)
         {
             ClearBackground (WHITE);
 
-            if (touched) {
-                if (tpos.x == 0 || tpos.y == 0)
-                    continue;
-
-                DrawCircleV (tpos, 30, ORANGE);
-                DrawText ("0", tpos.x - 10, tpos.y - 70, FONTSIZ, BLACK);
-            }
+            // if (touched) {
+            //     if (tpos.x == 0 || tpos.y == 0)
+            //         continue;
+            //
+            //     DrawCircleV (tpos, 30, ORANGE);
+            // }
 
             for (size_t i = 0; i < objs_len; ++i)
                 draw (&objs[i]);
