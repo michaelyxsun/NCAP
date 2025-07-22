@@ -10,7 +10,10 @@ Place your audio tracks in the path specified by `NCAP_DEFAULT_TRACK_PATH` found
 which defaults to `/sdcard/Music/NCAP-share`, which assumes that `/sdcard` is your home directory.
 This directory can be changed (with caution).
 
-NCAP sorts your tracks lexicographically, so prefix each of your tracks with a number according to the order in which the tracks should be played.
+NCAP sorts your tracks lexicographically, so prefix each track with a character according to the order in which the tracks should be played.
+
+Please refrain from using non-ASCII file names, as the characters will not render (will show as `?`)
+and NCAP may not find your file. **If a track does not play, this may be the issue.**
 
 ##### File Types
 

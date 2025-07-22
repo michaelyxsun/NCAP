@@ -67,6 +67,11 @@ load_dir (strvec_t *sv, const char *path)
 
     logdf ("closed DIR pointer to path `%s'", path);
 
+    if (sv->siz == 0) {
+        logw ("WARN: read no files");
+        return -1;
+    }
+
     strvec_sort (sv);
 
     return 0;
@@ -222,7 +227,8 @@ main (void)
            ncap_config.track_path);
     strvec_t sv;
     strvec_init (&sv);
-    load_dir (&sv, ncap_config.track_path);
+
+    int loadret = load_dir (&sv, ncap_config.track_path);
 
     pthread_t                audio_tid;
     struct audio_play_args_t audio_args = {
@@ -230,15 +236,21 @@ main (void)
         .sv     = &sv,
     };
 
-    pthread_create (&audio_tid, NULL, tfn_audio_play, &audio_args);
-    logi ("spawned audio_play thread");
+    if (loadret >= 0) {
+        pthread_create (&audio_tid, NULL, tfn_audio_play, &audio_args);
+        logi ("spawned audio_play thread");
+    } else {
+        loge ("not playing audio, load_dir failed");
+    }
 
     render (&sv);
 
-    logi ("joining threads...");
-    pthread_join (audio_tid, NULL);
-    logdf ("audio_play thread joined with a status code of %d...",
-           audio_args.errstat);
+    if (loadret >= 0) {
+        logi ("joining threads...");
+        pthread_join (audio_tid, NULL);
+        logdf ("audio_play thread joined with a status code of %d...",
+               audio_args.errstat);
+    }
 
     logi ("updating config...");
     config_write ();
