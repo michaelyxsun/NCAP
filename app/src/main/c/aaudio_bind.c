@@ -12,8 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #define DEBUG_TIMED
-
 #ifdef DEBUG_TIMED
 #include <time.h>
 #endif
@@ -113,7 +111,6 @@ audio_play (const char *fn)
     struct cwav_header_t header;
     fread (&header, CWAV_HEADER_SIZ, 1, fp);
 
-#ifndef NDEBUG
     // clang-format off
     logvf ("WAV header RIFF:\t%.4s",          header.riff.ckID);
     logvf ("WAV header file size:\t%u",       header.riff.cksize);
@@ -128,8 +125,7 @@ audio_play (const char *fn)
     logvf ("WAV header bits per sample:\t%u", header.fmt.wBitsPerSample);
     logvf ("WAV header data:\t%.4s",          header.data.ckID);
     logvf ("WAV header data size:\t%u",       header.data.cksize);
-// clang-format on
-#endif // !NDEBUG
+    // clang-format on
 
     // stream builder
 
@@ -178,7 +174,6 @@ audio_play (const char *fn)
     const int32_t buf_cap = AAudioStream_getBufferCapacityInFrames (stream);
     int32_t       buf_siz = AAudioStream_getBufferSizeInFrames (stream);
 
-#ifndef NDEBUG
     // clang-format off
     logvf ("device id: %d",        AAudioStream_getDeviceId (stream));
     logvf ("direction: %d",        AAudioStream_getDirection (stream));
@@ -189,7 +184,6 @@ audio_play (const char *fn)
     logvf ("buf_cap: %d",          buf_cap);
     logvf ("buf_siz: %d",          buf_siz);
     // clang-format on
-#endif // !NDEBUG
 
     AAudioStream_requestStart (stream);
     aaudio_stream_state_t state = AAUDIO_STREAM_STATE_UNINITIALIZED;

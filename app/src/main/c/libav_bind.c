@@ -31,7 +31,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/errno.h>
 
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
@@ -95,7 +94,7 @@ decode (AVCodecContext *ctx, AVPacket *pkt, AVFrame *frame, FILE *fp_out)
         return avret;
     }
 
-    // read all the output frames (in general there may be any number of them
+    // read all the output frames (in general there may be any number of them)
     while (avret >= 0) {
         avret = avcodec_receive_frame (ctx, frame);
 
@@ -342,7 +341,6 @@ libav_cvt_cwav (const char *fn_in, const char *fn_out)
     fseek (fp_out, 0, SEEK_SET);
     fwrite (&header, CWAV_HEADER_SIZ, 1, fp_out);
 
-#ifndef NDEBUG
     // clang-format off
     logvf ("WAV header RIFF:\t%.4s",          header.riff.ckID);
     logvf ("WAV header file size:\t%u",       header.riff.cksize);
@@ -357,8 +355,7 @@ libav_cvt_cwav (const char *fn_in, const char *fn_out)
     logvf ("WAV header bits per sample:\t%u", header.fmt.wBitsPerSample);
     logvf ("WAV header data:\t%.4s",          header.data.ckID);
     logvf ("WAV header data size:\t%u",       header.data.cksize);
-// clang-format on
-#endif // !NDEBUG
+    // clang-format on
 
 deinit_pkt:
     av_packet_free (&pkt);

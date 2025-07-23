@@ -701,12 +701,14 @@ render (const strvec_t *sv)
         {
             ClearBackground (WHITE);
 
-            // if (touched) {
-            //     if (tpos.x == 0 || tpos.y == 0)
-            //         continue;
-            //
-            //     DrawCircleV (tpos, 30, ORANGE);
-            // }
+#ifndef NCAP_NDEBUG
+            if (touched) {
+                if (tpos.x == 0 || tpos.y == 0)
+                    continue;
+
+                DrawCircleV (tpos, 30, ORANGE);
+            }
+#endif
 
             for (size_t i = 0; i < objs_len; ++i)
                 draw (&objs[i]);

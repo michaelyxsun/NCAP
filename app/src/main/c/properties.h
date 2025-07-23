@@ -16,4 +16,12 @@
 
 extern struct config_t ncap_config;
 
+// compile options
+
+/** turns off debug features */
+#define NCAP_NDEBUG
+
+/** for audio debugging: plays each track for max 5 seconds */
+// #define DEBUG_TIMED
+
 #endif // !PROPERTIES_H
