@@ -2,6 +2,15 @@
 
 A lightweight, minimal, and (hopefully) battery-saving audio player for Android, written in pure C.
 
+### Features
+
+- [x] Play in background
+- [x] Additional fine in-app volume control
+- [x] Track specific volume
+- [ ] Optimization selection
+- [ ] Multiple operation modes
+- [ ] x86 support (unlikely)
+
 ## Usage
 
 Grant NCAP media access permissions (from app info in settings).
@@ -29,7 +38,7 @@ The following audio codecs have been tested to work with NCAP:
 
 Please submit an issue if you encounter a codec that breaks.
 
-### Dependencies
+## Dependencies
 
 - [raylib](https://github.com/raysan5/raylib) (tested on `>=5.5`)
 - [FFmpeg](https://github.com/FFmpeg/FFmpeg) `>=7.0`
@@ -37,7 +46,7 @@ Please submit an issue if you encounter a codec that breaks.
     - `libavformat`
     - `libavcodec`
 
-### Supported ABIs
+## Supported ABIs
 
 See the [supported ABIs](https://developer.android.com/ndk/guides/abis#sa) page on the Android NDK documentation.
 
@@ -47,6 +56,6 @@ See the [supported ABIs](https://developer.android.com/ndk/guides/abis#sa) page 
 
 TODO: support x86 (libav compile issues)
 
-### Image
+## Image
 
 <img src="./app.png" width="300" alt="app screenshot" />

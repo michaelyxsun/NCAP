@@ -348,6 +348,8 @@ init_objs (const int SCW, const int SCH)
     textarg->y     = y + 32;
     textarg->color = BLACK;
 
+    // TODO(michaelyxsun): add track specific volume
+
     // repeat toggle
 
     static struct rl_rect_arg_t objs9;
