@@ -266,13 +266,13 @@ audio_play (const char *fn, size_t idx)
         config_get (vols, track_vols, pth_ret);
 
         sclbuf (buf, AAUDIO_FMT, PCM_DATA_WIDTH, buflen,
-                pth_ret == 0 ? 100 : vols[idx]);
+                pth_ret == 0 ? vols[idx] : 100);
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {
             int32_t ur_cnt = AAudioStream_getXRunCount (stream);
 
-            logdf ("Underruns: %d", ur_cnt);
+            logdf ("underruns: %d", ur_cnt);
 
             if (ur_cnt > prev_ur_cnt) {
                 prev_ur_cnt = ur_cnt;

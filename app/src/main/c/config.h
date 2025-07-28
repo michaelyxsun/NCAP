@@ -50,19 +50,19 @@ extern int config_deinit (void);
 extern int config_read (void);
 extern int config_write (void);
 
-#define config_get(val, field, pth_stat)                                      \
+#define config_get(val, field, pth_ret)                                       \
     do {                                                                      \
-        (pth_stat) = pthread_mutex_lock (&config_mx);                         \
-        if ((pth_stat) == 0) {                                                \
+        (pth_ret) = pthread_mutex_lock (&config_mx);                          \
+        if ((pth_ret) == 0) {                                                 \
             (val) = ncap_config.field;                                        \
             pthread_mutex_unlock (&config_mx);                                \
         }                                                                     \
     } while (0);
 
-#define config_set(val, field, pth_stat)                                      \
+#define config_set(val, field, pth_ret)                                       \
     do {                                                                      \
-        (pth_stat) = pthread_mutex_lock (&config_mx);                         \
-        if ((pth_stat) == 0) {                                                \
+        (pth_ret) = pthread_mutex_lock (&config_mx);                          \
+        if ((pth_ret) == 0) {                                                 \
             ncap_config.field = (val);                                        \
             pthread_mutex_unlock (&config_mx);                                \
         }                                                                     \

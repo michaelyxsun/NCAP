@@ -28,6 +28,7 @@ static const int FPS_ACTIVE = 30;
 static const int FPS_STATIC = 10;
 static const int FONTSIZ    = 60;
 static int       fps        = FPS_STATIC;
+static int       cur_track;
 
 static const struct timespec retry_ts
     = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
@@ -120,7 +121,7 @@ act_incvol (struct obj_t *this)
             return;
         }
 
-        snprintf (linkpar->str, 5, "%hhu%%", vol);
+        sprintf (linkpar->str, "%3hhu%%", vol);
     }
 }
 
@@ -151,7 +152,73 @@ act_decvol (struct obj_t *this)
             return;
         }
 
-        snprintf (linkpar->str, 5, "%hhu%%", vol);
+        sprintf (linkpar->str, "%3hhu%%", vol);
+    }
+}
+
+static void
+act_incsvol (struct obj_t *this)
+{
+    logd ("act_incsvol called");
+
+    struct rl_text_arg_t *const linkpar = this->link->params;
+    int                         pth_ret;
+
+    const uint8_t *svols;
+    config_get (svols, track_vols, pth_ret);
+
+    if (pth_ret != 0) {
+        logwf ("WARN: config_get failed with exit code %d: %s. aborting...",
+               pth_ret, strerror (pth_ret));
+        return;
+    }
+
+    uint8_t vol = svols[cur_track];
+
+    if (vol <= 90) {
+        config_set (vol += 10, track_vols[cur_track], pth_ret);
+
+        if (pth_ret != 0) {
+            logwf (
+                "WARN: config_set failed with exit code %d: %s. aborting...",
+                pth_ret, strerror (pth_ret));
+            return;
+        }
+
+        sprintf (linkpar->str, "%3hhu%%", vol);
+    }
+}
+
+static void
+act_decsvol (struct obj_t *this)
+{
+    logd ("act_decsvol called");
+
+    struct rl_text_arg_t *const linkpar = this->link->params;
+    int                         pth_ret;
+
+    const uint8_t *svols;
+    config_get (svols, track_vols, pth_ret);
+
+    if (pth_ret != 0) {
+        logwf ("WARN: config_get failed with exit code %d: %s. aborting...",
+               pth_ret, strerror (pth_ret));
+        return;
+    }
+
+    uint8_t vol = svols[cur_track];
+
+    if (vol >= 10) {
+        config_set (vol -= 10, track_vols[cur_track], pth_ret);
+
+        if (pth_ret != 0) {
+            logwf (
+                "WARN: config_set failed with exit code %d: %s. aborting...",
+                pth_ret, strerror (pth_ret));
+            return;
+        }
+
+        sprintf (linkpar->str, "%3hhu%%", vol);
     }
 }
 
@@ -194,6 +261,7 @@ static size_t       objs_len;
 
 static struct rl_rect_arg_t rectbg;
 static struct obj_t        *playback_obj;
+static char                 svol_str[5] = "???%";
 
 static void
 init_objs (const int SCW, const int SCH)
@@ -310,7 +378,6 @@ init_objs (const int SCW, const int SCH)
     objs[6].act             = act_decvol;
     objs[6].link            = &objs[7];
 
-    x = rectbg.pos.x;
     y += w + 16;
 
     triarg->v1.x = x + (w >> 1);
@@ -338,7 +405,7 @@ init_objs (const int SCW, const int SCH)
         logdf ("config_get returned code %d: %s", pth_ret, strerror (pth_ret));
     } while (pth_ret != 0);
 
-    snprintf (vol_str, sizeof vol_str, "%hhu%%", vol);
+    snprintf (vol_str, sizeof vol_str, "%3hhu%%", vol);
 
     textarg->str   = vol_str;
     textarg->fsiz  = FONTSIZ + 10;
@@ -348,15 +415,71 @@ init_objs (const int SCW, const int SCH)
     textarg->y     = y + 32;
     textarg->color = BLACK;
 
-    // TODO(michaelyxsun): add track specific volume
+    // specific volume up (tappable)
+
+    static struct rl_tri_arg_t objs8;
+    triarg = objs[8].params = &objs8;
+    objs[8].typ             = RL_TRI;
+    objs[8].dyn             = true;
+    objs[8].act             = act_incsvol;
+    objs[8].link            = &objs[10];
+
+    w = 160;
+    x = x + w_ + 64;
+    y = y_;
+
+    triarg->v1.x = x;
+    triarg->v2.x = x + w;
+    triarg->v1.y = triarg->v2.y = y + w;
+    triarg->v3.x                = x + (w >> 1);
+    triarg->v3.y                = y;
+    triarg->color               = MAROON;
+
+    y_ = y;
+    w_ = w;
+
+    // volume down (tappable)
+
+    static struct rl_tri_arg_t objs9;
+    triarg = objs[9].params = &objs9;
+    objs[9].typ             = RL_TRI;
+    objs[9].dyn             = true;
+    objs[9].act             = act_decsvol;
+    objs[9].link            = &objs[10];
+
+    y += w + 16;
+
+    triarg->v1.x = x + (w >> 1);
+    triarg->v1.y = y + w;
+    triarg->v2.x = x + w;
+    triarg->v3.x = x;
+    triarg->v2.y = triarg->v3.y = y;
+    triarg->color               = MAROON;
+
+    y += w;
+
+    // volume text
+
+    static struct rl_text_arg_t objs10;
+    textarg = objs[10].params = &objs10;
+    objs[10].typ              = RL_TEXT;
+    objs[10].dyn              = false;
+
+    textarg->str   = svol_str;
+    textarg->fsiz  = FONTSIZ;
+    w              = MeasureText ("100%", textarg->fsiz);
+    h              = textarg->fsiz;
+    textarg->x     = x;
+    textarg->y     = y + 32;
+    textarg->color = BLACK;
 
     // repeat toggle
 
-    static struct rl_rect_arg_t objs9;
-    rectarg = objs[9].params = &objs9;
-    objs[9].typ              = RL_RECT;
-    objs[9].dyn              = true;
-    objs[9].act              = act_togglerepeat;
+    static struct rl_rect_arg_t objs12;
+    rectarg = objs[12].params = &objs12;
+    objs[12].typ              = RL_RECT;
+    objs[12].dyn              = true;
+    objs[12].act              = act_togglerepeat;
 
     w = rectarg->siz.x = rectarg->siz.y = FONTSIZ;
     x = rectarg->pos.x = x + w_ + 64;
@@ -369,10 +492,10 @@ init_objs (const int SCW, const int SCH)
 
     // repeat label
 
-    static struct rl_text_arg_t objs8;
-    textarg = objs[8].params = &objs8;
-    objs[8].typ              = RL_TEXT;
-    objs[8].dyn              = false;
+    static struct rl_text_arg_t objs11;
+    textarg = objs[11].params = &objs11;
+    objs[11].typ              = RL_TEXT;
+    objs[11].dyn              = false;
 
     textarg->str   = "repeat";
     textarg->fsiz  = FONTSIZ + 10;
@@ -380,7 +503,7 @@ init_objs (const int SCW, const int SCH)
     textarg->y     = y;
     textarg->color = BLACK;
 
-    objs_len = 10;
+    objs_len = 13;
 }
 
 static void
@@ -531,23 +654,17 @@ init_draw_tracks_params (int pad, int fontsiz)
     return params;
 }
 
-/**
- * DO NOT CALL track_objs[i].act, stores an index
- */
 static struct {
     int       id;
     Rectangle rect;
 } track_rects[MAX_OBJS];
 
 static void
-draw_tracks (const char *const *tracks, const size_t len,
-             const struct draw_tracks_params_t *par)
+draw_tracks (const char *const *tracks, size_t len,
+             const struct draw_tracks_params_t *restrict par)
 {
     Vector2 rectpos = par->rectpos;
     int     pth_ret;
-
-    int cur_track = -1;
-    config_get (cur_track, cur_track, pth_ret);
 
     for (size_t i = 0; i < len; ++i) {
         DrawRectangleV (rectpos, par->rectsiz,
@@ -563,6 +680,15 @@ draw_tracks (const char *const *tracks, const size_t len,
 
         rectpos.y += par->rectsiz.y + par->pad; // par->pad is spacing
     }
+}
+
+static void
+upd_svol (int i)
+{
+    int      pth_ret;
+    uint8_t *svols;
+    config_get (svols, track_vols, pth_ret);
+    snprintf (svol_str, sizeof svol_str, "%3hhu%%", svols[i]);
 }
 
 void
@@ -629,13 +755,28 @@ render (const strvec_t *sv)
         logvf ("truncated track `%s' to `%s'", sv->ptr[i], tracks_trunc[i]);
     }
 
-    for (; !WindowShouldClose (); ptouched = touched, ptpos = tpos) {
+    int pcur_track = -1;
+
+    for (; !WindowShouldClose ();
+         ptouched = touched, ptpos = tpos, pcur_track = cur_track) {
         touched = GetTouchPointCount ();
+
+        config_get (cur_track, cur_track, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf ("WARN: could not get cur_track. error code %d: %s. "
+                   "using previous value %d",
+                   pth_ret, strerror (pth_ret), pcur_track);
+            cur_track = pcur_track;
+        }
+
+        if (cur_track != pcur_track)
+            upd_svol (cur_track);
 
         if (!touched && !ptouched) {
             if (fps != FPS_STATIC) {
                 SetTargetFPS (fps = FPS_STATIC);
-                logif ("set FPS to %d", fps);
+                logvf ("set FPS to %d", fps);
             }
 
             BeginDrawing ();
