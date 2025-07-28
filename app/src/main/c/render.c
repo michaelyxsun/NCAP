@@ -703,7 +703,7 @@ render (const strvec_t *sv)
         {
             ClearBackground (WHITE);
 
-#ifndef NCAP_NDEBUG
+#if NCAP_DEBUG
             if (touched) {
                 if (tpos.x == 0 || tpos.y == 0)
                     continue;

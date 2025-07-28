@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef DEBUG_TIMED
+#if DEBUG_TIMED
 #include <time.h>
 #endif
 
@@ -197,7 +197,7 @@ audio_play (const char *fn, size_t idx)
     void        *buf         = malloc (buflen * PCM_DATA_WIDTH);
     int32_t      prev_ur_cnt = 0;
 
-#ifdef DEBUG_TIMED
+#if DEBUG_TIMED
     const time_t timer_start = time (NULL);
     const time_t dur         = 5;
 #endif
@@ -208,7 +208,7 @@ audio_play (const char *fn, size_t idx)
     int      ret = NCAP_OK;
     uint8_t *vols;
 
-#ifdef DEBUG_TIMED
+#if DEBUG_TIMED
 #define AUDIO_STOP_COND                                                       \
     (res >= AAUDIO_OK && !feof (fp) && time (NULL) - timer_start < dur)
 #else
@@ -290,7 +290,7 @@ audio_play (const char *fn, size_t idx)
     free (buf);
     fclose (fp);
 
-#ifdef DEBUG_TIMED
+#if DEBUG_TIMED
     logif ("Audio play ended after %u secs. Stopping stream...",
            (uint32_t)dur);
 #else
