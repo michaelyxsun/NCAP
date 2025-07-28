@@ -54,8 +54,11 @@ init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
 }
 
 static void
-sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len)
+sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len,
+        uint8_t svol)
 {
+    logdf ("got svol %hhu", svol);
+
     int     pth_ret;
     uint8_t vol;
     config_get (vol, volume, pth_ret);
@@ -63,7 +66,7 @@ sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len)
     float scl;
 
     if (pth_ret == 0) {
-        scl = vol / 100.0f;
+        scl = (vol * svol) / 10000.0f;
     } else {
         logwf ("WARN: config_get failed with error code %d: %s. Dropping "
                "frame...",
@@ -97,7 +100,7 @@ pthread_mutex_t audio_int_mx = PTHREAD_MUTEX_INITIALIZER;
 bool            audio_int    = false;
 
 int
-audio_play (const char *fn)
+audio_play (const char *fn, size_t idx)
 {
     FILE *fp = fopen (fn, "rb");
 
@@ -201,8 +204,9 @@ audio_play (const char *fn)
 
     logi ("Stream started. Playing audio...");
 
-    int pth_err;
-    int ret = NCAP_OK;
+    int      pth_ret;
+    int      ret = NCAP_OK;
+    uint8_t *vols;
 
 #ifdef DEBUG_TIMED
 #define AUDIO_STOP_COND                                                       \
@@ -214,10 +218,10 @@ audio_play (const char *fn)
     while (AUDIO_STOP_COND) {
         // check for interrupt
 
-        if ((pth_err = pthread_mutex_lock (&audio_int_mx)) != 0) {
+        if ((pth_ret = pthread_mutex_lock (&audio_int_mx)) != 0) {
             logef ("ERROR: pthread_mutex_lock on audio_mx failed with error "
                    "code %d: %s. stopping playback...",
-                   pth_err, strerror (pth_err));
+                   pth_ret, strerror (pth_ret));
             break;
         }
 
@@ -232,10 +236,10 @@ audio_play (const char *fn)
 
         // check for pause (playback control)
 
-        if ((pth_err = pthread_mutex_lock (&audio_mx)) != 0) {
+        if ((pth_ret = pthread_mutex_lock (&audio_mx)) != 0) {
             logef ("ERROR: pthread_mutex_lock on audio_mx failed with error "
                    "code %d: %s. stopping playback...",
-                   pth_err, strerror (pth_err));
+                   pth_ret, strerror (pth_ret));
             break;
         }
 
@@ -259,7 +263,10 @@ audio_play (const char *fn)
         if (fread (buf, PCM_DATA_WIDTH, buflen, fp) <= 0)
             logw ("WARN: fread returned with code <= 0");
 
-        sclbuf (buf, AAUDIO_FMT, PCM_DATA_WIDTH, buflen);
+        config_get (vols, track_vols, pth_ret);
+
+        sclbuf (buf, AAUDIO_FMT, PCM_DATA_WIDTH, buflen,
+                pth_ret == 0 ? 100 : vols[idx]);
         res = AAudioStream_write (stream, buf, frames_per_burst, nstimeout);
 
         if (buf_siz < buf_cap) {

@@ -8,8 +8,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "logging.h"
-
 extern pthread_mutex_t config_mx;
 
 /**
@@ -28,9 +26,15 @@ extern struct config_t {
     uint8_t  aaudio_optimize;
     uint8_t  volume; // 0 to 100
     uint32_t cur_track;
-    uint32_t track_path_len;
+    uint32_t track_path_len; // includes the null byte
+    uint32_t ntracks;
     char    *track_path; // path to media
+    uint8_t *track_vols; // volume for each track
+                         // NOTE: memsets will not work if this is not 1 byte
 } ncap_config;
+
+#define NCAP_CONFIG_SIZ                                                       \
+    (sizeof (struct config_t) - (sizeof (char *) + sizeof (uint8_t *)))
 
 extern FILE *ncap_config_fp;
 
@@ -41,19 +45,11 @@ extern FILE *ncap_config_fp;
 #define CONFIG_INIT_CREAT  1
 #define CONFIG_INIT_EXISTS 2
 
-/** synced with config_mx */
 extern int config_init (const char *fn);
-
-/** synced with config_mx */
 extern int config_deinit (void);
-
-/** synced with config_mx */
 extern int config_read (void);
+extern int config_write (void);
 
-/** synced with config_mx */
-extern void config_write (void);
-
-/** synced with config_mx */
 #define config_get(val, field, pth_stat)                                      \
     do {                                                                      \
         (pth_stat) = pthread_mutex_lock (&config_mx);                         \
@@ -63,7 +59,6 @@ extern void config_write (void);
         }                                                                     \
     } while (0);
 
-/** synced with config_mx */
 #define config_set(val, field, pth_stat)                                      \
     do {                                                                      \
         (pth_stat) = pthread_mutex_lock (&config_mx);                         \
@@ -73,10 +68,15 @@ extern void config_write (void);
         }                                                                     \
     } while (0);
 
-extern void config_logdump (void);
+/**
+ * `ncap_config.track_vols` should be `NULL` or allocated with `malloc`.
+ */
+extern int config_upd_vols (uint32_t newsiz, uint8_t def);
+
+extern int config_logdump (void);
 
 /**
- * @return type aaudio_performance_mode_t cast to int
+ * @return type `aaudio_performance_mode_t` cast to `int`
  */
 extern int to_aaudio_pm (uint8_t cfg_code);
 

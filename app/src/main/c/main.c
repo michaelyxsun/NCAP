@@ -11,6 +11,7 @@
 #include "audio.h"
 #include "config.h"
 #include "logging.h"
+#include "malloc.h"
 #include "properties.h"
 #include "render.h"
 #include "strvec.h"
@@ -86,6 +87,19 @@ struct audio_play_args_t {
 static void *
 tfn_audio_play (void *args_vp)
 {
+    struct audio_play_args_t *args    = args_vp;
+    strvec_t *const           sv      = args->sv;
+    const size_t              ntracks = sv->siz;
+    int                       pth_ret;
+
+    logv ("fixing volume config...");
+
+    if ((pth_ret = config_upd_vols (ntracks, 100)) != CONFIG_OK) {
+        logwf ("WARN: config_upd_vols failed with exit code %d: %s. "
+               "continuing...",
+               pth_ret, strerror (pth_ret));
+    }
+
     int ret;
 
     logd ("waiting for render ready...");
@@ -98,19 +112,13 @@ tfn_audio_play (void *args_vp)
 
     logi ("render_ready = true; audio_play thread proceeding");
 
-    struct audio_play_args_t *args = args_vp;
-    strvec_t *const           sv   = args->sv;
-    int                       pth_err;
-
     size_t i;
-
-    const size_t ntracks = sv->siz;
 
     while (true) {
         // set current track number
         do {
-            config_get (i, cur_track, pth_err);
-        } while (pth_err != 0);
+            config_get (i, cur_track, pth_ret);
+        } while (pth_ret != 0);
 
         logdf ("got i=%zu", i);
 
@@ -137,7 +145,7 @@ tfn_audio_play (void *args_vp)
 
         logi ("playing audio...");
 
-        if ((args->errstat = audio_play (fn_out)) < NCAP_OK) {
+        if ((args->errstat = audio_play (fn_out, i)) < NCAP_OK) {
             logef ("ERROR: libav_cvt_wav failed with code %d. aborting...\n",
                    args->errstat);
             goto exit;
@@ -156,26 +164,26 @@ tfn_audio_play (void *args_vp)
         // increment current track number
 
         do {
-            config_set (++i, cur_track, pth_err);
-        } while (pth_err != 0);
+            config_set (++i, cur_track, pth_ret);
+        } while (pth_ret != 0);
 
         if (i == ntracks) {
             do {
-                config_set (i = 0, cur_track, pth_err);
-            } while (pth_err != 0);
+                config_set (i = 0, cur_track, pth_ret);
+            } while (pth_ret != 0);
 
             uint8_t isrepeat;
-            config_get (isrepeat, isrepeat, pth_err);
+            config_get (isrepeat, isrepeat, pth_ret);
 
-            if (!(pth_err == 0 && isrepeat))
+            if (!(pth_ret == 0 && isrepeat))
                 audio_pause ();
         }
     }
 
     if (i == ntracks) {
         do {
-            config_set (0, cur_track, pth_err);
-        } while (pth_err != 0);
+            config_set (0, cur_track, pth_ret);
+        } while (pth_ret != 0);
     }
 
 exit:
@@ -196,7 +204,6 @@ main (void)
     // remove (cfgfile);
     switch (config_init (cfgfile)) {
         case CONFIG_INIT_CREAT:
-            logi ("creating config...");
             ncap_config.aaudio_optimize = 2; // power saving
             ncap_config.cur_track       = 0;
             ncap_config.isrepeat        = 0; // false
@@ -204,7 +211,8 @@ main (void)
             ncap_config.volume          = 100;
             ncap_config.track_path      = NCAP_DEFAULT_TRACK_PATH;
             ncap_config.track_path_len  = strlen (ncap_config.track_path) + 1;
-            logi ("writing to config...");
+            ncap_config.ntracks         = 0;
+            ncap_config.track_vols      = NULL;
             config_write ();
             break;
         case CONFIG_INIT_EXISTS:

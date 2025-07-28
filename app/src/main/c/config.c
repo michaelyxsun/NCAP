@@ -10,16 +10,16 @@
 #include <aaudio/AAudio.h>
 #include "logging.h"
 #else // NCAP_ISTEST
-#define loge(fmt)       puts
-#define logw(fmt)       puts
-#define logi(fmt)       puts
-#define logd(fmt)       puts
-#define logv(fmt)       puts
-#define logef(fmt, ...) printf
-#define logwf(fmt, ...) printf
-#define logif(fmt, ...) printf
-#define logdf(fmt, ...) printf
-#define logvf(fmt, ...) printf
+#define loge(fmt)       puts (fmt)
+#define logw(fmt)       puts (fmt)
+#define logi(fmt)       puts (fmt)
+#define logd(fmt)       puts (fmt)
+#define logv(fmt)       puts (fmt)
+#define logef(fmt, ...) printf (fmt, __VA_ARGS__)
+#define logwf(fmt, ...) printf (fmt, __VA_ARGS__)
+#define logif(fmt, ...) printf (fmt, __VA_ARGS__)
+#define logdf(fmt, ...) printf (fmt, __VA_ARGS__)
+#define logvf(fmt, ...) printf (fmt, __VA_ARGS__)
 #endif // NCAP_ISTEST
 
 #include "config.h"
@@ -30,20 +30,31 @@ struct config_t ncap_config;
 FILE           *ncap_config_fp = NULL;
 
 /** set to NULL when unused/freed */
-static char *pathbuf = NULL;
+static char    *pathbuf = NULL;
+static uint8_t *volsbuf = NULL;
 
 pthread_mutex_t config_mx = PTHREAD_MUTEX_INITIALIZER;
+
+#define CONFIG_LOCK_MX                                                        \
+    do {                                                                      \
+        if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {               \
+            logwf ("WARN: could not lock config_mx. Error code %d: %s",       \
+                   pth_ret, strerror (pth_ret));                              \
+            return CONFIG_ETHRD;                                              \
+        }                                                                     \
+    } while (0);
+
+#define CONFIG_UNLOCK_MX                                                      \
+    do {                                                                      \
+        pthread_mutex_unlock (&config_mx);                                    \
+    } while (0);
 
 int
 config_init (const char *fn)
 {
     int pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
-        return CONFIG_ETHRD;
-    }
+    CONFIG_LOCK_MX;
 
     if (access (fn, F_OK) == 0) {
         if ((ncap_config_fp = fopen (fn, "rb+")) == NULL) {
@@ -66,7 +77,7 @@ config_init (const char *fn)
     }
 
 exit:
-    pthread_mutex_unlock (&config_mx);
+    CONFIG_UNLOCK_MX;
     return pth_ret;
 }
 
@@ -75,14 +86,12 @@ config_deinit (void)
 {
     int pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
-        return CONFIG_ETHRD;
-    }
+    CONFIG_LOCK_MX;
 
     free (pathbuf);
+    free (volsbuf);
     pathbuf = NULL;
+    volsbuf = NULL;
 
     int ret = CONFIG_OK;
 
@@ -94,7 +103,7 @@ config_deinit (void)
     }
 
 exit:
-    pthread_mutex_unlock (&config_mx);
+    CONFIG_UNLOCK_MX;
     return ret;
 }
 
@@ -103,15 +112,12 @@ config_read (void)
 {
     int pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
-        return CONFIG_ETHRD;
-    }
+    CONFIG_LOCK_MX;
 
     fseek (ncap_config_fp, 0, SEEK_SET);
-    fread (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
-           ncap_config_fp);
+    fread (&ncap_config, NCAP_CONFIG_SIZ, 1, ncap_config_fp);
+
+    // track paths
 
     if (pathbuf != NULL)
         free (pathbuf);
@@ -122,40 +128,71 @@ config_read (void)
     fread (pathbuf, sizeof (char), ncap_config.track_path_len, ncap_config_fp);
     ncap_config.track_path = pathbuf;
 
-    pthread_mutex_unlock (&config_mx);
+    // track volumes
+
+    if (volsbuf != NULL)
+        free (volsbuf);
+
+    if ((volsbuf = malloc (ncap_config.ntracks)) == NULL)
+        return CONFIG_EMEM;
+
+    fread (volsbuf, sizeof (uint8_t), ncap_config.ntracks, ncap_config_fp);
+    ncap_config.track_vols = volsbuf;
+
+    CONFIG_UNLOCK_MX;
     return CONFIG_OK;
 }
 
-void
+int
 config_write (void)
 {
     int pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
-        return;
-    }
+    CONFIG_LOCK_MX;
 
     fseek (ncap_config_fp, 0, SEEK_SET);
-    fwrite (&ncap_config, sizeof (struct config_t) - sizeof (char *), 1,
+    fwrite (&ncap_config, NCAP_CONFIG_SIZ, 1, ncap_config_fp);
+    fwrite (ncap_config.track_path, sizeof (char), ncap_config.track_path_len,
             ncap_config_fp);
-    fputs (ncap_config.track_path, ncap_config_fp);
-    fputc ('\0', ncap_config_fp);
+    fwrite (ncap_config.track_vols, sizeof (uint8_t), ncap_config.ntracks,
+            ncap_config_fp);
 
-    pthread_mutex_unlock (&config_mx);
+    CONFIG_UNLOCK_MX;
+    return CONFIG_OK;
 }
 
-void
-config_logdump ()
+int
+config_upd_vols (uint32_t ntracks, uint8_t def)
 {
     int pth_ret;
 
-    if ((pth_ret = pthread_mutex_lock (&config_mx)) != 0) {
-        logwf ("WARN: could not lock config_mx. Error code %d: %s", pth_ret,
-               strerror (pth_ret));
-        return;
+    CONFIG_LOCK_MX;
+
+    const uint32_t cfg_ntracks = ncap_config.ntracks;
+
+    if (cfg_ntracks != ntracks) {
+        uint8_t *tmp = realloc (ncap_config.track_vols, ntracks);
+
+        if (tmp == NULL)
+            return CONFIG_EMEM;
+
+        if (cfg_ntracks < ntracks)
+            memset (tmp + cfg_ntracks, 100, ntracks - cfg_ntracks);
+
+        ncap_config.track_vols = tmp;
+        ncap_config.ntracks    = ntracks;
     }
+
+    CONFIG_UNLOCK_MX;
+    return CONFIG_OK;
+}
+
+int
+config_logdump (void)
+{
+    int pth_ret;
+
+    CONFIG_LOCK_MX;
 
     logif ("isrepeat:\t%hhu", ncap_config.isrepeat);
     logif ("isshuffle:\t%hhu", ncap_config.isshuffle);
@@ -165,7 +202,8 @@ config_logdump ()
     logif ("track_path_len:\t%u", ncap_config.track_path_len);
     logif ("track_path:\t%s", ncap_config.track_path);
 
-    pthread_mutex_unlock (&config_mx);
+    CONFIG_UNLOCK_MX;
+    return CONFIG_OK;
 }
 
 int
@@ -186,3 +224,6 @@ to_aaudio_pm (uint8_t cfg_code)
     return 0;
 #endif // !NCAP_ISTEST
 }
+
+#undef CONFIG_LOCK_MX
+#undef CONFIG_UNLOCK_MX
