@@ -100,9 +100,6 @@ tfn_audio_play (void *args_vp)
                pth_ret, strerror (pth_ret));
     }
 
-    // TEMP
-    config_set (1, isshuffle, pth_ret);
-
     uint8_t isshuffle;
     config_get (isshuffle, isshuffle, pth_ret);
 
@@ -125,13 +122,12 @@ tfn_audio_play (void *args_vp)
 
     while (true) {
         // set current track number
-        do {
-            config_get (i, cur_track, pth_ret);
-        } while (pth_ret != 0);
+        config_get_force (i, cur_track);
+        config_get_force (isshuffle, isshuffle);
 
-        const size_t ct = config_tord_at (i, NULL);
+        const size_t ct = isshuffle ? config_tord_at (i, NULL) : i;
 
-        logdf ("got i=%zu, tord[i]=%zu", i, ct);
+        logif ("got i=%zu, tord[i]=%zu", i, ct);
 
         // get path
 
@@ -156,8 +152,7 @@ tfn_audio_play (void *args_vp)
 
         logi ("playing audio...");
 
-        if ((args->errstat = audio_play (fn_out, config_tord_at (i, NULL)))
-            < NCAP_OK) {
+        if ((args->errstat = audio_play (fn_out, ct)) < NCAP_OK) {
             logef ("ERROR: libav_cvt_wav failed with code %d. aborting...\n",
                    args->errstat);
             goto exit;

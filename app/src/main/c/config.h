@@ -72,6 +72,22 @@ extern int config_write (void);
         }                                                                     \
     } while (0);
 
+#define config_get_force(val, field)                                          \
+    do {                                                                      \
+        int pth_ret_;                                                         \
+        do {                                                                  \
+            config_get (val, field, pth_ret_);                                \
+        } while (pth_ret_ != 0);                                              \
+    } while (0);
+
+#define config_set_force(val, field)                                          \
+    do {                                                                      \
+        int pth_ret_;                                                         \
+        do {                                                                  \
+            config_set (val, field, pth_ret_);                                \
+        } while (pth_ret_ != 0);                                              \
+    } while (0);
+
 /**
  * `ncap_config.track_vols` should be `NULL` or allocated with `malloc`.
  */

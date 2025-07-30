@@ -12,7 +12,6 @@
 #include "logging.h"
 #include "render.h"
 #include "strvec.h"
-#include "sys/types.h"
 #include "time.h"
 
 static const char *FILENAME = "render.c";
@@ -32,6 +31,7 @@ static const int FPS_STATIC = 10;
 static const int FONTSIZ    = 60;
 static int       fps        = FPS_STATIC;
 static int       cur_track;
+static size_t    ntracks;
 
 static const struct timespec retry_ts
     = { .tv_sec = 0, .tv_nsec = 250000000 }; // 250 ms
@@ -254,6 +254,35 @@ act_togglerepeat (struct obj_t *this)
     }
 }
 
+static void
+act_toggleshuffle (struct obj_t *this)
+{
+    logd ("act_toggleshuffle called");
+
+    struct rl_rect_arg_t *par = this->params;
+    int                   pth_ret;
+
+    if (memcmp (&par->color, &(GRAY), sizeof (GRAY)) == 0) {
+        config_set (1, isshuffle, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf ("WARN: config_set isshuffle failed with error code %d: %s",
+                   pth_ret, strerror (pth_ret));
+        } else {
+            par->color = GREEN;
+        }
+    } else {
+        config_set (0, isshuffle, pth_ret);
+
+        if (pth_ret != 0) {
+            logwf ("WARN: config_set failed with error code %d: %s", pth_ret,
+                   strerror (pth_ret));
+        } else {
+            par->color = GRAY;
+        }
+    }
+}
+
 /**
  * 0: close text background
  * 1: close text
@@ -441,7 +470,7 @@ init_objs (const int SCW, const int SCH)
     y_ = y;
     w_ = w;
 
-    // volume down (tappable)
+    // specific volume down (tappable)
 
     static struct rl_tri_arg_t objs9;
     triarg = objs[9].params = &objs9;
@@ -461,7 +490,7 @@ init_objs (const int SCW, const int SCH)
 
     y += w;
 
-    // volume text
+    // specific volume text
 
     static struct rl_text_arg_t objs10;
     textarg = objs[10].params = &objs10;
@@ -469,7 +498,7 @@ init_objs (const int SCW, const int SCH)
     objs[10].dyn              = false;
 
     textarg->str   = svol_str;
-    textarg->fsiz  = FONTSIZ;
+    textarg->fsiz  = FONTSIZ + 10;
     w              = MeasureText ("100%", textarg->fsiz);
     h              = textarg->fsiz;
     textarg->x     = x;
@@ -501,12 +530,42 @@ init_objs (const int SCW, const int SCH)
     objs[11].dyn              = false;
 
     textarg->str   = "repeat";
-    textarg->fsiz  = FONTSIZ + 10;
+    textarg->fsiz  = FONTSIZ;
     textarg->x     = x + w + 32;
     textarg->y     = y;
     textarg->color = BLACK;
 
-    objs_len = 13;
+    // shuffle toggle
+
+    static struct rl_rect_arg_t objs13;
+    rectarg = objs[13].params = &objs13;
+    objs[13].typ              = RL_RECT;
+    objs[13].dyn              = true;
+    objs[13].act              = act_toggleshuffle;
+
+    w = rectarg->siz.x = rectarg->siz.y = FONTSIZ;
+    rectarg->pos.x                      = x;
+    y = rectarg->pos.y = y + 128;
+
+    uint8_t isshuffle;
+    config_get_force (isshuffle, isshuffle);
+
+    rectarg->color = pth_ret == 0 && isshuffle ? GREEN : GRAY;
+
+    // shuffle label
+
+    static struct rl_text_arg_t objs14;
+    textarg = objs[14].params = &objs14;
+    objs[14].typ              = RL_TEXT;
+    objs[14].dyn              = false;
+
+    textarg->str   = "shuffle";
+    textarg->fsiz  = FONTSIZ;
+    textarg->x     = x + w + 16;
+    textarg->y     = y;
+    textarg->color = BLACK;
+
+    objs_len = 15;
 }
 
 static void
@@ -742,7 +801,7 @@ render (const strvec_t *sv)
     const struct draw_tracks_params_t draw_tracks_par
         = init_draw_tracks_params (10, FONTSIZ);
 
-    const size_t ntracks = sv->siz;
+    ntracks = sv->siz;
 
     char **tracks_trunc = malloc (ntracks * sizeof (char *));
 
@@ -775,8 +834,14 @@ render (const strvec_t *sv)
         }
 
         if (cur_trid != pcur_trid) {
-            cur_track = config_tord_at (cur_trid, NULL);
             upd_svol (cur_track);
+
+            uint8_t isshuffle;
+            config_get (isshuffle, isshuffle, pth_ret);
+
+            cur_track = pth_ret == 0 && isshuffle
+                            ? config_tord_at (cur_trid, NULL)
+                            : cur_trid;
         }
 
         if (!touched && !ptouched) {
