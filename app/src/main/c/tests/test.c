@@ -1,13 +1,9 @@
-#pragma once
-
-#ifndef TEST_H
-#define TEST_H
-
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
 
-extern size_t passcnt, failcnt;
+size_t passcnt = 0;
+size_t failcnt = 0;
 
 #define assert_fatal(cond, msg, label)                                        \
     if (!(cond)) {                                                            \
@@ -31,5 +27,3 @@ extern size_t passcnt, failcnt;
 #define report()                                                              \
     printf ("\n------REPORT------\npasses:\t%zu\nfails:\t%zu\ntotal:\t%zu\n", \
             passcnt, failcnt, passcnt + failcnt)
-
-#endif // !TEST_H

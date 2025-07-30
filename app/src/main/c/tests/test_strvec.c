@@ -1,12 +1,8 @@
-#include <stdio.h>
 #include <string.h>
 
-#include "test.h"
+#include "test.c"
 
 #include "../strvec.h"
-
-size_t passcnt = 0;
-size_t failcnt = 0;
 
 int
 main (void)

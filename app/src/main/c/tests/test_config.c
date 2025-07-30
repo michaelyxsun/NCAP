@@ -3,12 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "test.h"
+#include "test.c"
 
 #include "../config.h"
-
-size_t passcnt = 0;
-size_t failcnt = 0;
 
 bool
 cfg_eq (const struct config_t *c1, const struct config_t *c2)
