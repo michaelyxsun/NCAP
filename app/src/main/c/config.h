@@ -45,8 +45,12 @@ extern FILE *ncap_config_fp;
 #define CONFIG_INIT_CREAT  1
 #define CONFIG_INIT_EXISTS 2
 
+/** not thread safe */
 extern int config_init (const char *fn);
+
+/** not thread safe */
 extern int config_deinit (void);
+
 extern int config_read (void);
 extern int config_write (void);
 
@@ -74,6 +78,18 @@ extern int config_write (void);
 extern int config_upd_vols (uint32_t newsiz, uint8_t def);
 
 extern int config_logdump (void);
+
+extern size_t *config_tord;
+
+/** not thread safe */
+extern int config_tord_init (size_t ntracks, unsigned int seed);
+
+/** not thread safe */
+extern int config_tord_deinit (void);
+
+extern int config_tord_reshuffle (size_t ntracks);
+
+extern size_t config_tord_at (size_t i, int *_Nullable stat);
 
 /**
  * @return type `aaudio_performance_mode_t` cast to `int`

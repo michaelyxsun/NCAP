@@ -22,6 +22,7 @@
 #define logvf(fmt, ...) printf (fmt, __VA_ARGS__)
 #endif // NCAP_ISTEST
 
+#include "algs.h"
 #include "config.h"
 
 static const char *FILENAME = "config.c";
@@ -54,8 +55,6 @@ config_init (const char *fn)
 {
     int pth_ret;
 
-    CONFIG_LOCK_MX;
-
     if (access (fn, F_OK) == 0) {
         if ((ncap_config_fp = fopen (fn, "rb+")) == NULL) {
             logef ("ERROR: could not open config file `%s' for rb+: %s", fn,
@@ -77,7 +76,6 @@ config_init (const char *fn)
     }
 
 exit:
-    CONFIG_UNLOCK_MX;
     return pth_ret;
 }
 
@@ -85,8 +83,6 @@ int
 config_deinit (void)
 {
     int pth_ret;
-
-    CONFIG_LOCK_MX;
 
     free (pathbuf);
     free (volsbuf);
@@ -103,7 +99,6 @@ config_deinit (void)
     }
 
 exit:
-    CONFIG_UNLOCK_MX;
     return ret;
 }
 
@@ -206,6 +201,101 @@ config_logdump (void)
     return CONFIG_OK;
 }
 
+#undef CONFIG_LOCK_MX
+#undef CONFIG_UNLOCK_MX
+
+size_t       *config_tord = NULL;
+static size_t tord_len;
+
+pthread_mutex_t config_tord_mx = PTHREAD_MUTEX_INITIALIZER;
+
+#define CONFIG_LOCK_TORD_MX                                                   \
+    do {                                                                      \
+        if ((pth_ret = pthread_mutex_lock (&config_tord_mx)) != 0) {          \
+            logwf ("WARN: could not lock config_tord_mx. Error code %d: %s",  \
+                   pth_ret, strerror (pth_ret));                              \
+            return CONFIG_ETHRD;                                              \
+        }                                                                     \
+    } while (0);
+
+#define CONFIG_UNLOCK_TORD_MX                                                 \
+    do {                                                                      \
+        pthread_mutex_unlock (&config_tord_mx);                               \
+    } while (0);
+
+int
+config_tord_init (size_t ntracks, unsigned int seed)
+{
+    tord_len    = ntracks;
+    config_tord = malloc (ntracks * sizeof (size_t));
+
+    if (config_tord == NULL)
+        return CONFIG_EMEM;
+
+    for (size_t i = 0; i < ntracks; ++i)
+        config_tord[i] = i;
+
+    srand (seed);
+    shuffle (config_tord, sizeof (size_t), ntracks);
+
+    // REMOVE
+    for (size_t i = 0; i < ntracks; ++i)
+        logdf ("CONFIG_TORD:\t%zu", config_tord[i]);
+
+    return CONFIG_OK;
+}
+
+int
+config_tord_deinit (void)
+{
+    free (config_tord);
+    return CONFIG_OK;
+}
+
+size_t
+config_tord_at (size_t i, int *stat)
+{
+    if (pthread_mutex_lock (&config_tord_mx) != 0) {
+        if (stat != NULL)
+            *stat = CONFIG_EMEM;
+        return 0;
+    }
+
+    size_t ret = config_tord[i];
+    pthread_mutex_unlock (&config_tord_mx);
+    return ret;
+}
+
+int
+config_tord_reshuffle (size_t ntracks)
+{
+    int ret = CONFIG_OK;
+    int pth_ret;
+    CONFIG_LOCK_TORD_MX;
+
+    if (ntracks != tord_len) {
+        size_t *tmp = realloc (config_tord, ntracks * sizeof (size_t));
+
+        if (tmp == NULL) {
+            ret = CONFIG_EMEM;
+            goto exit;
+        }
+
+        config_tord = tmp;
+
+        for (size_t i = tord_len; i < ntracks; ++i)
+            config_tord[i] = i;
+
+        tord_len = ntracks;
+    }
+
+    shuffle (config_tord, sizeof (size_t), tord_len);
+
+exit:
+    CONFIG_UNLOCK_TORD_MX;
+    return ret;
+}
+
 int
 to_aaudio_pm (uint8_t cfg_code)
 {
@@ -224,6 +314,3 @@ to_aaudio_pm (uint8_t cfg_code)
     return 0;
 #endif // !NCAP_ISTEST
 }
-
-#undef CONFIG_LOCK_MX
-#undef CONFIG_UNLOCK_MX

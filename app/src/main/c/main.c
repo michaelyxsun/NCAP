@@ -8,10 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "algs.h"
 #include "audio.h"
 #include "config.h"
 #include "logging.h"
-#include "malloc.h"
 #include "properties.h"
 #include "render.h"
 #include "strvec.h"
@@ -92,13 +92,22 @@ tfn_audio_play (void *args_vp)
     const size_t              ntracks = sv->siz;
     int                       pth_ret;
 
-    logv ("fixing volume config...");
+    logd ("fixing volume config...");
 
     if ((pth_ret = config_upd_vols (ntracks, 100)) != CONFIG_OK) {
         logwf ("WARN: config_upd_vols failed with exit code %d: %s. "
                "continuing...",
                pth_ret, strerror (pth_ret));
     }
+
+    // TEMP
+    config_set (1, isshuffle, pth_ret);
+
+    uint8_t isshuffle;
+    config_get (isshuffle, isshuffle, pth_ret);
+
+    if (pth_ret == 0 && isshuffle)
+        config_tord_reshuffle (ntracks);
 
     int ret;
 
@@ -120,14 +129,16 @@ tfn_audio_play (void *args_vp)
             config_get (i, cur_track, pth_ret);
         } while (pth_ret != 0);
 
-        logdf ("got i=%zu", i);
+        const size_t ct = config_tord_at (i, NULL);
+
+        logdf ("got i=%zu, tord[i]=%zu", i, ct);
 
         // get path
 
-        logvf ("preparing to play `%s'", sv->ptr[i]);
+        logvf ("preparing to play `%s'", sv->ptr[ct]);
 
         static char fn_in[MAX_PATH_LEN], fn_out[MAX_PATH_LEN];
-        path_concat (fn_in, args->prefix, sv->ptr[i]);
+        path_concat (fn_in, args->prefix, sv->ptr[ct]);
         path_concat (fn_out, activity->internalDataPath,
                      NCAP_AUDIO_CACHE_FILE);
 
@@ -145,7 +156,8 @@ tfn_audio_play (void *args_vp)
 
         logi ("playing audio...");
 
-        if ((args->errstat = audio_play (fn_out, i)) < NCAP_OK) {
+        if ((args->errstat = audio_play (fn_out, config_tord_at (i, NULL)))
+            < NCAP_OK) {
             logef ("ERROR: libav_cvt_wav failed with code %d. aborting...\n",
                    args->errstat);
             goto exit;
@@ -161,7 +173,7 @@ tfn_audio_play (void *args_vp)
         if (args->errstat == NCAP_INT)
             continue;
 
-        // increment current track number
+        // increment index
 
         do {
             config_set (++i, cur_track, pth_ret);
@@ -177,6 +189,11 @@ tfn_audio_play (void *args_vp)
 
             if (!(pth_ret == 0 && isrepeat))
                 audio_pause ();
+
+            config_get (isshuffle, isshuffle, pth_ret);
+
+            if (pth_ret == 0 && isshuffle)
+                config_tord_reshuffle (ntracks);
         }
     }
 
@@ -237,6 +254,7 @@ main (void)
     strvec_init (&sv);
 
     int loadret = load_dir (&sv, ncap_config.track_path);
+    int ctoret  = config_tord_init (sv.siz, 1314520);
 
     pthread_t                audio_tid;
     struct audio_play_args_t audio_args = {
@@ -244,11 +262,13 @@ main (void)
         .sv     = &sv,
     };
 
-    if (loadret >= 0) {
+    if (loadret >= 0 && ctoret == NCAP_OK) {
         pthread_create (&audio_tid, NULL, tfn_audio_play, &audio_args);
         logi ("spawned audio_play thread");
     } else {
-        loge ("not playing audio, load_dir failed");
+        logef ("ERROR: not playing audio, load_dir returned %d and "
+               "config_tord_init returned %d",
+               loadret, ctoret);
     }
 
     render (&sv);
@@ -266,8 +286,10 @@ main (void)
     logi ("deinit strvec...");
     strvec_deinit (&sv);
 
-    logi ("deinit config...");
+    logi ("deinit config_tord");
+    config_tord_deinit ();
 
+    logi ("deinit config...");
     if (config_deinit () != CONFIG_OK)
         logw ("WARN: config_deinit failed");
 

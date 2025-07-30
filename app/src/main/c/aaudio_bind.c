@@ -57,8 +57,6 @@ static void
 sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len,
         uint8_t svol)
 {
-    logdf ("got svol %hhu", svol);
-
     int     pth_ret;
     uint8_t vol;
     config_get (vol, volume, pth_ret);

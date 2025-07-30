@@ -1,6 +1,8 @@
+#include <inttypes.h>
 #include <pthread.h>
 #include <raylib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +12,7 @@
 #include "logging.h"
 #include "render.h"
 #include "strvec.h"
+#include "sys/types.h"
 #include "time.h"
 
 static const char *FILENAME = "render.c";
@@ -755,23 +758,26 @@ render (const strvec_t *sv)
         logvf ("truncated track `%s' to `%s'", sv->ptr[i], tracks_trunc[i]);
     }
 
-    int pcur_track = -1;
+    uint32_t cur_trid  = 0;
+    uint32_t pcur_trid = UINT32_MAX;
 
     for (; !WindowShouldClose ();
-         ptouched = touched, ptpos = tpos, pcur_track = cur_track) {
+         ptouched = touched, ptpos = tpos, pcur_trid = cur_trid) {
         touched = GetTouchPointCount ();
 
-        config_get (cur_track, cur_track, pth_ret);
+        config_get (cur_trid, cur_track, pth_ret);
 
         if (pth_ret != 0) {
             logwf ("WARN: could not get cur_track. error code %d: %s. "
-                   "using previous value %d",
-                   pth_ret, strerror (pth_ret), pcur_track);
-            cur_track = pcur_track;
+                   "using previous value %" PRIu32,
+                   pth_ret, strerror (pth_ret), pcur_trid);
+            cur_trid = pcur_trid;
         }
 
-        if (cur_track != pcur_track)
+        if (cur_trid != pcur_trid) {
+            cur_track = config_tord_at (cur_trid, NULL);
             upd_svol (cur_track);
+        }
 
         if (!touched && !ptouched) {
             if (fps != FPS_STATIC) {

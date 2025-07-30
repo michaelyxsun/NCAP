@@ -19,9 +19,9 @@ extern struct config_t ncap_config;
 // compile options
 
 /** debug features */
-#define NCAP_DEBUG 0
+#define NCAP_DEBUG 1
 
 /** for audio debugging: plays each track for max 5 seconds */
-#define DEBUG_TIMED 0
+#define DEBUG_TIMED 1
 
 #endif // !PROPERTIES_H
