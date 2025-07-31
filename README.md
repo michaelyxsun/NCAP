@@ -59,3 +59,11 @@ TODO: support x86 (libav compile issues)
 ## Image
 
 <img src="./app.png" width="300" alt="app screenshot" />
+
+## Notes
+
+### 0.1.1
+
+Version number and code were not updated and will still appear to be in version 0.1.0.
+If your app has an orange disk indicator when you touch the screen, you are in version 0.1.0,
+otherwise it is 0.1.1.
