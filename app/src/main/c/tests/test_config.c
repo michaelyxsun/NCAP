@@ -5,7 +5,8 @@
 
 #include "test.c"
 
-#include "../config.h"
+#include "../algs.c"
+#include "../config.c"
 
 bool
 cfg_eq (const struct config_t *c1, const struct config_t *c2)

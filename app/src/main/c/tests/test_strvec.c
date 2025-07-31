@@ -2,7 +2,7 @@
 
 #include "test.c"
 
-#include "../strvec.h"
+#include "../strvec.c"
 
 int
 main (void)

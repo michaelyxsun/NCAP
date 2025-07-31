@@ -96,8 +96,6 @@ extern int config_upd_vols (uint32_t newsiz, uint8_t def);
 
 extern int config_logdump (void);
 
-extern size_t *_Nullable config_tord;
-
 /** not thread safe */
 extern int config_tord_init (size_t ntracks, unsigned int seed);
 

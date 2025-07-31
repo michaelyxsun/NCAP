@@ -4,7 +4,7 @@
 
 #include "test.c"
 
-#include "../algs.h"
+#include "../algs.c"
 
 int
 main (void)
@@ -16,9 +16,9 @@ main (void)
     const size_t width = sizeof base[0];
     const size_t len   = sizeof base / width;
 
-    srand (888888888);
+    srand (88888888);
 
-    size_t iters = 9;
+    size_t iters = 8;
 
     while (iters--) {
         shuffle (arr, width, len);

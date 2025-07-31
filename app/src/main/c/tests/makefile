@@ -13,7 +13,7 @@ BUILD_PREFIX = build
 OUT = $(BUILD_PREFIX)/$(BIN)
 
 default:
-	$(CC) test_$(TARG).c ../$(TARG).c -o $(OUT) $(CFLAGS) $(CFLAGS_EXTRA) -g
+	$(CC) test_$(TARG).c -o $(OUT) $(CFLAGS) $(CFLAGS_EXTRA) -g
 
 test: default
 	./$(OUT)
