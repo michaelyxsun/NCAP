@@ -28,15 +28,16 @@ extern struct config_t {
     uint32_t cur_track;
     uint32_t track_path_len; // includes the null byte
     uint32_t ntracks;
-    char    *track_path; // path to media
-    uint8_t *track_vols; // volume for each track
-                         // NOTE: memsets will not work if this is not 1 byte
+    char *_Nullable track_path;    // path to media
+    uint8_t *_Nullable track_vols; // volume for each track
+                                   // NOTE: memsets will not work if this is
+                                   // not 1 byte
 } ncap_config;
 
 #define NCAP_CONFIG_SIZ                                                       \
     (sizeof (struct config_t) - (sizeof (char *) + sizeof (uint8_t *)))
 
-extern FILE *ncap_config_fp;
+extern FILE *_Nullable ncap_config_fp;
 
 #define CONFIG_ETHRD       -3
 #define CONFIG_EMEM        -2
@@ -46,7 +47,7 @@ extern FILE *ncap_config_fp;
 #define CONFIG_INIT_EXISTS 2
 
 /** not thread safe */
-extern int config_init (const char *fn);
+extern int config_init (const char *_Nonnull fn);
 
 /** not thread safe */
 extern int config_deinit (void);
@@ -95,7 +96,7 @@ extern int config_upd_vols (uint32_t newsiz, uint8_t def);
 
 extern int config_logdump (void);
 
-extern size_t *config_tord;
+extern size_t *_Nullable config_tord;
 
 /** not thread safe */
 extern int config_tord_init (size_t ntracks, unsigned int seed);

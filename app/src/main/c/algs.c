@@ -6,7 +6,7 @@
 
 // TODO(michaelyxsun): inline asm
 void
-memswp (void *p1, void *p2, size_t width)
+memswp (void *restrict p1, void *restrict p2, size_t width)
 {
     void    *tmp;
     uint64_t u64tmp;

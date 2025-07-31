@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "algs.h"
 #include "audio.h"
 #include "config.h"
 #include "logging.h"

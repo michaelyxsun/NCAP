@@ -7,9 +7,9 @@
 #include <raylib.h>
 #include <stdbool.h>
 
-#include "strvec.h"
-
 #include <android_native_app_glue.h>
+
+#include "strvec.h"
 
 extern struct android_app *GetAndroidApp (void);
 
@@ -50,7 +50,7 @@ struct rl_tri_arg_t {
 };
 
 struct rl_text_arg_t {
-    char *str;
+    char *_Nonnull str;
     int   x;
     int   y;
     int   fsiz;
@@ -58,16 +58,16 @@ struct rl_text_arg_t {
 };
 
 struct obj_t {
-    void          *params;
+    void *_Nonnull params;
     enum obj_typ_e typ;
     bool           dyn;
-    void (*act) (struct obj_t *);
-    struct obj_t *link;
+    void (*_Nullable act) (struct obj_t *_Nullable);
+    struct obj_t *_Nullable link;
 };
 
 extern void render_init (void);
 
-extern void render (const strvec_t *sv);
+extern void render (const strvec_t *_Nonnull sv);
 
 extern int render_close (void);
 

@@ -8,7 +8,7 @@
 typedef struct strvec_struct {
     size_t cap;
     size_t siz;
-    char **ptr;
+    char *_Nullable *_Nullable ptr;
 } strvec_t;
 
 #define STRQUEUE_OK    0
@@ -16,28 +16,29 @@ typedef struct strvec_struct {
 #define STRQUEUE_ENULL -2
 
 /** sets errno */
-extern int strvec_init (strvec_t *this);
+extern int strvec_init (strvec_t *_Nonnull this);
 
-extern void strvec_deinit (strvec_t *this);
+extern void strvec_deinit (strvec_t *_Nonnull this);
 
-extern int strvec_pushb (strvec_t *this, const char *str, size_t len);
+extern int strvec_pushb (strvec_t *_Nonnull this, const char *_Nonnull str,
+                         size_t len);
 
-extern void strvec_popb (strvec_t *this);
+extern void strvec_popb (strvec_t *_Nonnull this);
 
 /**
  * signature:
  *
- * char *strvec_front (strvec_t *this);
+ * `char *strvec_front (strvec_t *_Nonnull this);`
  */
 #define strvec_front(thisaddr) ((thisaddr)->ptr[0])
 
 /**
  * signature:
  *
- * char *strvec_back (strvec_t *this);
+ * `char *strvec_back (strvec_t *_Nonnull this);`
  */
 #define strvec_back(thisaddr) ((thisaddr)->ptr[(thisaddr)->siz - 1])
 
-extern void strvec_sort (strvec_t *this);
+extern void strvec_sort (strvec_t *_Nonnull this);
 
 #endif // !STRQUEUE_H

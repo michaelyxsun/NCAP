@@ -38,7 +38,7 @@ strvec_deinit (strvec_t *this)
 }
 
 int
-strvec_pushb (strvec_t *this, const char *restrict str, size_t len)
+strvec_pushb (strvec_t *this, const char *str, size_t len)
 {
     if (this->siz == this->cap)
         expand (this);

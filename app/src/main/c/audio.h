@@ -57,11 +57,12 @@ struct cwav_header_t {
 
 // TODO(michaelyxsun): add err2str
 
-extern int libav_cvt_cwav (const char *fn_in, const char *fn_out);
+extern int libav_cvt_cwav (const char *_Nonnull fn_in,
+                           const char *_Nonnull fn_out);
 
-extern int audio_play (const char *fn, size_t idx);
+extern int audio_play (const char *_Nonnull fn, size_t idx);
 
-/** NOT THREAD SAFE */
+/** not thread safe */
 extern void audio_init (void);
 
 extern bool audio_isplaying (void);

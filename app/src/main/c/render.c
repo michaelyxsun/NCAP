@@ -722,8 +722,8 @@ static struct {
 } track_rects[MAX_OBJS];
 
 static void
-draw_tracks (const char *const *tracks, size_t len,
-             const struct draw_tracks_params_t *restrict par)
+draw_tracks (const char *_Nonnull const *_Nonnull tracks, size_t len,
+             const struct draw_tracks_params_t *_Nonnull restrict par)
 {
     Vector2 rectpos = par->rectpos;
     int     pth_ret;
