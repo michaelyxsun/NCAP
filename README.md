@@ -35,6 +35,7 @@ The following audio codecs have been tested to work with NCAP:
 | MPEG-4 Audio                     | `.m4a`    |
 | OPUS                             | `.opus`   |
 | Free Lossless Audio Codec (FLAC) | `.flac`   |
+| OGG                              | `.ogg`    |
 
 Please submit an issue if you encounter a codec that breaks.
 
