@@ -117,14 +117,20 @@ tfn_audio_play (void *args_vp)
 
     logi ("render_ready = true; audio_play thread proceeding");
 
-    size_t i;
+    size_t  i;
+    uint8_t pisshuffle = UINT8_MAX;
 
-    while (true) {
-        // set current track number
+    for (; true; pisshuffle = isshuffle) {
         config_get_force (i, cur_track);
         config_get_force (isshuffle, isshuffle);
 
-        const size_t ct = isshuffle ? config_tord_at (i, NULL) : i;
+        const size_t ct
+            = isshuffle ? config_tord_at (pisshuffle ? i : (i = 0), NULL)
+              : pisshuffle
+                  ? (i
+                     = (config_tord_at ((i + ntracks - 1) % ntracks, NULL) + 1)
+                       % ntracks)
+                  : i;
 
         logif ("got i=%zu, tord[i]=%zu", i, ct);
 
