@@ -204,7 +204,8 @@ config_logdump (void)
 #undef CONFIG_LOCK_MX
 #undef CONFIG_UNLOCK_MX
 
-size_t       *config_tord = NULL;
+size_t       *config_tord   = NULL;
+size_t       *config_tord_r = NULL;
 static size_t tord_len;
 
 pthread_mutex_t config_tord_mx = PTHREAD_MUTEX_INITIALIZER;
@@ -226,11 +227,15 @@ pthread_mutex_t config_tord_mx = PTHREAD_MUTEX_INITIALIZER;
 int
 config_tord_init (size_t ntracks, unsigned int seed)
 {
-    tord_len    = ntracks;
-    config_tord = malloc (ntracks * sizeof (size_t));
+    tord_len = ntracks;
 
-    if (config_tord == NULL)
+    if ((config_tord = malloc (ntracks * sizeof (size_t))) == NULL)
         return CONFIG_EMEM;
+
+    if ((config_tord_r = malloc (ntracks * sizeof (size_t))) == NULL) {
+        free (config_tord);
+        return CONFIG_EMEM;
+    }
 
     for (size_t i = 0; i < ntracks; ++i)
         config_tord[i] = i;
@@ -238,9 +243,8 @@ config_tord_init (size_t ntracks, unsigned int seed)
     srand (seed);
     shuffle (config_tord, sizeof (size_t), ntracks);
 
-    // REMOVE
     for (size_t i = 0; i < ntracks; ++i)
-        logdf ("CONFIG_TORD:\t%zu", config_tord[i]);
+        config_tord_r[config_tord[i]] = i;
 
     return CONFIG_OK;
 }
@@ -249,6 +253,7 @@ int
 config_tord_deinit (void)
 {
     free (config_tord);
+    free (config_tord_r);
     return CONFIG_OK;
 }
 
@@ -262,6 +267,20 @@ config_tord_at (size_t i, int *stat)
     }
 
     size_t ret = config_tord[i];
+    pthread_mutex_unlock (&config_tord_mx);
+    return ret;
+}
+
+size_t
+config_tord_r_at (size_t i, int *stat)
+{
+    if (pthread_mutex_lock (&config_tord_mx) != 0) {
+        if (stat != NULL)
+            *stat = CONFIG_EMEM;
+        return 0;
+    }
+
+    size_t ret = config_tord_r[i];
     pthread_mutex_unlock (&config_tord_mx);
     return ret;
 }
@@ -281,7 +300,16 @@ config_tord_reshuffle (size_t ntracks)
             goto exit;
         }
 
-        config_tord = tmp;
+        size_t *tmp_r = realloc (config_tord_r, ntracks * sizeof (size_t));
+
+        if (tmp_r == NULL) {
+            ret = CONFIG_EMEM;
+            free (tmp);
+            goto exit;
+        }
+
+        config_tord   = tmp;
+        config_tord_r = tmp_r;
 
         for (size_t i = tord_len; i < ntracks; ++i)
             config_tord[i] = i;
@@ -291,10 +319,16 @@ config_tord_reshuffle (size_t ntracks)
 
     shuffle (config_tord, sizeof (size_t), tord_len);
 
+    for (size_t i = 0; i < ntracks; ++i)
+        config_tord_r[config_tord[i]] = i;
+
 exit:
     CONFIG_UNLOCK_TORD_MX;
     return ret;
 }
+
+#undef CONFIG_LOCK_TORD_MX
+#undef CONFIG_UNLOCK_TORD_MX
 
 int
 to_aaudio_pm (uint8_t cfg_code)
@@ -310,7 +344,7 @@ to_aaudio_pm (uint8_t cfg_code)
             return AAUDIO_PERFORMANCE_MODE_NONE;
     }
 #else  // NCAP_ISTEST
-    puts ("to_aaudio_pm doesn't work when NCAP_ISTEST is defined");
+    fputs ("to_aaudio_pm doesn't work when NCAP_ISTEST is defined", stderr);
     return 0;
 #endif // !NCAP_ISTEST
 }

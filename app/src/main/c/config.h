@@ -106,6 +106,8 @@ extern int config_tord_reshuffle (size_t ntracks);
 
 extern size_t config_tord_at (size_t i, int *_Nullable stat);
 
+extern size_t config_tord_r_at (size_t i, int *_Nullable stat);
+
 /**
  * @return type `aaudio_performance_mode_t` cast to `int`
  */

@@ -890,7 +890,22 @@ render (const strvec_t *sv)
                 float b = ptpos.y - track_rects[i].rect.y;
                 if (a >= 0 && b >= 0 && a <= track_rects[i].rect.width
                     && b <= track_rects[i].rect.height) {
-                    config_set (track_rects[i].id, cur_track, pth_ret);
+                    // act_settrack
+                    int     pth_ret;
+                    uint8_t isshuffle;
+                    config_get (isshuffle, isshuffle, pth_ret);
+                    config_set (
+                        pth_ret == 0 && isshuffle
+                            ? config_tord_r_at (track_rects[i].id, NULL)
+                            : track_rects[i].id,
+                        cur_track, pth_ret);
+
+                    if (pth_ret != 0) {
+                        logwf ("WARN: could not set cur_track in "
+                               "act_settrack. error code %d: %s",
+                               pth_ret, strerror (pth_ret));
+                    }
+
                     audio_interrupt ();
                 }
             }
