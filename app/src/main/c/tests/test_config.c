@@ -62,6 +62,21 @@ main (void)
     assert_nonfatal (config_deinit () == CONFIG_OK, "error with config_deinit");
     // clang-format on
 
+    // tord
+
+    const size_t ntracks = 8;
+    assert_nonfatal (config_tord_init (ntracks, 1314) == CONFIG_OK,
+                     "tord_init should work");
+
+    for (size_t i = 0; i < ntracks; ++i) {
+        assert_nonfatal (config_tord_at (config_tord_r_at (i, NULL), NULL)
+                             == i,
+                         "tord and tord_r should be inverses");
+    }
+
+    assert_nonfatal (config_tord_deinit () == CONFIG_OK,
+                     "tord_deinit should work");
+
     report ();
 
     return 0;
