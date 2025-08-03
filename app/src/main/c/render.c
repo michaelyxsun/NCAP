@@ -834,14 +834,12 @@ render (const strvec_t *sv)
         }
 
         if (cur_trid != pcur_trid) {
-            upd_svol (cur_track);
-
             uint8_t isshuffle;
             config_get (isshuffle, isshuffle, pth_ret);
 
-            cur_track = pth_ret == 0 && isshuffle
-                            ? config_tord_at (cur_trid, NULL)
-                            : cur_trid;
+            upd_svol (cur_track = pth_ret == 0 && isshuffle
+                                      ? config_tord_at (cur_trid, NULL)
+                                      : cur_trid);
         }
 
         if (!touched && !ptouched) {
