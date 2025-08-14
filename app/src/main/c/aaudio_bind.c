@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -53,6 +54,16 @@ init_aaudio_fmt (int wav_fmt_code, int *fmt, size_t *siz)
     }
 }
 
+const float STEVENS_a_RECIP = 0.67f;
+
+/**
+ * scales a buffer using volume and specific volume in `ncap_config`.
+ * `psi(I) + n = psi(kI)` => `k = (n/I^a + 1)^(1/a)`.
+ * k in `[0, 1]` => n in `[-I^a, 0]`.
+ * decreases by -I^a/10 every time (proportional to intensity).
+ *
+ * stevens's power law: `https://en.wikipedia.org/wiki/Stevens%27s_power_law`.
+ */
 static void
 sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len,
         uint8_t svol)
@@ -64,7 +75,7 @@ sclbuf (void *buf, const aaudio_format_t fmt, const size_t width, size_t len,
     float scl;
 
     if (pth_ret == 0) {
-        scl = (vol * svol) / 10000.0f;
+        scl = powf ((vol * svol) / 10000.0f, STEVENS_a_RECIP);
     } else {
         logwf ("WARN: config_get failed with error code %d: %s. Dropping "
                "frame...",
