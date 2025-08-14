@@ -83,7 +83,7 @@ act_toggleplay (struct obj_t *this)
         }
 
         memcpy (linkpar->str, " play", 6);
-        par->color = DARKGREEN;
+        par->color = GREEN;
     } else {
         while ((aret = audio_resume ()) != 0) {
             logwf ("WARN: audio_resume failed with error code %d: %s. "
@@ -93,7 +93,7 @@ act_toggleplay (struct obj_t *this)
         }
 
         memcpy (linkpar->str, "pause", 6);
-        par->color = MAROON;
+        par->color = RED;
     }
 }
 
@@ -233,7 +233,7 @@ act_togglerepeat (struct obj_t *this)
     struct rl_rect_arg_t *par = this->params;
     int                   pth_ret;
 
-    if (memcmp (&par->color, &(GRAY), sizeof (GRAY)) == 0) {
+    if (memcmp (&par->color, &(DARKGRAY), sizeof (Color)) == 0) {
         config_set (1, isrepeat, pth_ret);
 
         if (pth_ret != 0) {
@@ -249,7 +249,7 @@ act_togglerepeat (struct obj_t *this)
             logwf ("WARN: config_set failed with error code %d: %s", pth_ret,
                    strerror (pth_ret));
         } else {
-            par->color = GRAY;
+            par->color = DARKGRAY;
         }
     }
 }
@@ -262,7 +262,7 @@ act_toggleshuffle (struct obj_t *this)
     struct rl_rect_arg_t *par = this->params;
     int                   pth_ret;
 
-    if (memcmp (&par->color, &(GRAY), sizeof (GRAY)) == 0) {
+    if (memcmp (&par->color, &(DARKGRAY), sizeof (Color)) == 0) {
         config_set (1, isshuffle, pth_ret);
 
         if (pth_ret != 0) {
@@ -278,7 +278,7 @@ act_toggleshuffle (struct obj_t *this)
             logwf ("WARN: config_set failed with error code %d: %s", pth_ret,
                    strerror (pth_ret));
         } else {
-            par->color = GRAY;
+            par->color = DARKGRAY;
         }
     }
 }
@@ -329,7 +329,7 @@ init_objs (const int SCW, const int SCH)
     h             = textarg->fsiz;
     x = textarg->x = SCW - w - 90;
     y = textarg->y = 90;
-    textarg->color = WHITE;
+    textarg->color = BLACK;
 
     // close text background (tappable)
 
@@ -360,7 +360,7 @@ init_objs (const int SCW, const int SCH)
     h                          = textarg->fsiz;
     x = textarg->x = (SCW - w) >> 1;
     y = textarg->y = rectbg.pos.y - h - 30;
-    textarg->color = WHITE;
+    textarg->color = BLACK;
 
     // play/pause button background (tappable)
 
@@ -376,7 +376,7 @@ init_objs (const int SCW, const int SCH)
     rectarg->siz.y = h + 32;
     rectarg->pos.x = x - 32;
     rectarg->pos.y = y - 16;
-    rectarg->color = DARKGREEN;
+    rectarg->color = GREEN;
 
     // volume up (tappable)
 
@@ -396,7 +396,7 @@ init_objs (const int SCW, const int SCH)
     triarg->v1.y = triarg->v2.y = y + w;
     triarg->v3.x                = x + (w >> 1);
     triarg->v3.y                = y;
-    triarg->color               = MAROON;
+    triarg->color               = RED;
 
     int y_ = y;
     int w_ = w;
@@ -417,7 +417,7 @@ init_objs (const int SCW, const int SCH)
     triarg->v2.x = x + w;
     triarg->v3.x = x;
     triarg->v2.y = triarg->v3.y = y;
-    triarg->color               = MAROON;
+    triarg->color               = RED;
 
     y += w;
 
@@ -445,7 +445,7 @@ init_objs (const int SCW, const int SCH)
     h              = textarg->fsiz;
     textarg->x     = x;
     textarg->y     = y + 32;
-    textarg->color = BLACK;
+    textarg->color = WHITE;
 
     // specific volume up (tappable)
 
@@ -465,7 +465,7 @@ init_objs (const int SCW, const int SCH)
     triarg->v1.y = triarg->v2.y = y + w;
     triarg->v3.x                = x + (w >> 1);
     triarg->v3.y                = y;
-    triarg->color               = MAROON;
+    triarg->color               = RED;
 
     y_ = y;
     w_ = w;
@@ -486,7 +486,7 @@ init_objs (const int SCW, const int SCH)
     triarg->v2.x = x + w;
     triarg->v3.x = x;
     triarg->v2.y = triarg->v3.y = y;
-    triarg->color               = MAROON;
+    triarg->color               = RED;
 
     y += w;
 
@@ -503,7 +503,7 @@ init_objs (const int SCW, const int SCH)
     h              = textarg->fsiz;
     textarg->x     = x;
     textarg->y     = y + 32;
-    textarg->color = BLACK;
+    textarg->color = WHITE;
 
     // repeat toggle
 
@@ -520,7 +520,7 @@ init_objs (const int SCW, const int SCH)
     uint8_t isrepeat;
     config_get (isrepeat, isrepeat, pth_ret);
 
-    rectarg->color = pth_ret == 0 && isrepeat ? GREEN : GRAY;
+    rectarg->color = pth_ret == 0 && isrepeat ? GREEN : DARKGRAY;
 
     // repeat label
 
@@ -533,7 +533,7 @@ init_objs (const int SCW, const int SCH)
     textarg->fsiz  = FONTSIZ;
     textarg->x     = x + w + 32;
     textarg->y     = y;
-    textarg->color = BLACK;
+    textarg->color = WHITE;
 
     // shuffle toggle
 
@@ -550,7 +550,7 @@ init_objs (const int SCW, const int SCH)
     uint8_t isshuffle;
     config_get_force (isshuffle, isshuffle);
 
-    rectarg->color = pth_ret == 0 && isshuffle ? GREEN : GRAY;
+    rectarg->color = pth_ret == 0 && isshuffle ? GREEN : DARKGRAY;
 
     // shuffle label
 
@@ -563,7 +563,7 @@ init_objs (const int SCW, const int SCH)
     textarg->fsiz  = FONTSIZ;
     textarg->x     = x + w + 16;
     textarg->y     = y;
-    textarg->color = BLACK;
+    textarg->color = WHITE;
 
     objs_len = 15;
 }
@@ -730,9 +730,9 @@ draw_tracks (const char *_Nonnull const *_Nonnull tracks, size_t len,
 
     for (size_t i = 0; i < len; ++i) {
         DrawRectangleV (rectpos, par->rectsiz,
-                        i == cur_track ? YELLOW : WHITE);
+                        i == cur_track ? YELLOW : BLACK);
         DrawText (tracks[i], rectpos.x + par->txtpad, rectpos.y + par->txtpad,
-                  par->fontsiz, BLACK);
+                  par->fontsiz, i == cur_track ? BLACK : WHITE);
 
         track_rects[i].rect.x      = rectpos.x;
         track_rects[i].rect.y      = rectpos.y;
@@ -850,7 +850,7 @@ render (const strvec_t *sv)
 
             BeginDrawing ();
             {
-                ClearBackground (WHITE);
+                ClearBackground (BLACK);
 
                 for (size_t i = 0; i < objs_len; ++i)
                     draw (&objs[i]);
@@ -926,7 +926,7 @@ render (const strvec_t *sv)
 
         BeginDrawing ();
         {
-            ClearBackground (WHITE);
+            ClearBackground (BLACK);
 
 #if NCAP_DEBUG
             if (touched) {
@@ -1034,10 +1034,10 @@ render_sync_playback_button (void)
     if (audio_isplaying ()) {
         memcpy (((struct rl_text_arg_t *)playback_obj->link->params)->str,
                 "pause", 6);
-        ((struct rl_rect_arg_t *)playback_obj->params)->color = MAROON;
+        ((struct rl_rect_arg_t *)playback_obj->params)->color = RED;
     } else {
         memcpy (((struct rl_text_arg_t *)playback_obj->link->params)->str,
                 " play", 6);
-        ((struct rl_rect_arg_t *)playback_obj->params)->color = DARKGREEN;
+        ((struct rl_rect_arg_t *)playback_obj->params)->color = GREEN;
     }
 }
