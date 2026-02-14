@@ -283,11 +283,6 @@ act_toggleshuffle (struct obj_t *this)
     }
 }
 
-/**
- * 0: close text background
- * 1: close text
- * 2: prompt text
- */
 static struct obj_t objs[MAX_OBJS];
 static size_t       objs_len;
 
@@ -311,7 +306,7 @@ init_objs (const int SCW, const int SCH)
     objs[0].dyn              = false;
 
     w = rectarg->siz.x = SCW * 0.8;
-    h = rectarg->siz.y = SCH * 0.5;
+    h = rectarg->siz.y = SCH * 0.6;
     rectarg->pos.x     = (SCW - w) >> 1;
     rectarg->pos.y     = ((SCH - h) >> 1) - 150;
     rectarg->color     = DARKGRAY;

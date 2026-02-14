@@ -11,6 +11,7 @@
 
 #include "strvec.h"
 
+// NOTE: nullability unspecified by raylib
 extern struct android_app *GetAndroidApp (void);
 
 #define MAX_OBJS    32
